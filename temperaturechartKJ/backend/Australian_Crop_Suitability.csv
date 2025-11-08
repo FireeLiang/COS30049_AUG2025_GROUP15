@@ -1,0 +1,11 @@
+Crop,Temp_Min,Temp_Max,Best,Rainfall_Min,Rainfall_Max,State,Season_Start,Season_End,Suitability_Level
+Wheat,15,25,20,300,900,"WA, NSW, VIC, SA",May,Nov,High
+Cotton,20,35,27.5,400,700,"NSW, QLD",Sep,Apr,High
+Grapes,15,30,22.5,600,800,"SA, VIC, NSW",Aug,Mar,High
+Corn,18,27,22.5,500,900,"QLD, NSW, VIC",Oct,Apr,Moderate
+Avocados,20,30,25,1000,1600,"QLD, NSW, WA",Aug,Mar,High
+Berries,10,25,17.5,800,1500,"TAS, VIC, NSW",Apr,Dec,High
+Tomatoes,18,30,24,600,1200,"QLD, VIC, NSW",Aug,Feb,High
+Capsicums,20,30,25,600,1200,"QLD, NSW",Sep,Mar,High
+Carrots,16,24,20,700,1000,"TAS, SA, VIC",Mar,Sep,Moderate
+Potatoes,15,20,17.5,900,1400,"TAS, VIC, WA",Feb,Sep,High
