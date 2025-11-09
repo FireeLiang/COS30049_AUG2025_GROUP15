@@ -14,10 +14,6 @@ import {
   Paper,
   FormControlLabel,
   Switch,
-  Divider,
-  Grid,
-  Button,
-  TextField,
 } from "@mui/material";
 
 /* =========================================================================
@@ -493,18 +489,6 @@ export default function TrendsD3Page() {
 
   const monthLabel = MONTHS.find((m) => m.value === selectedMonth)?.label ?? "";
 
-  /* =========================================================================
-     2025 PREDICTIONS (UI ONLY NOW)
-     ========================================================================= */
-  const [predSite, setPredSite] = useState("");
-  const [predMonth, setPredMonth] = useState(1);
-  const [predValue, setPredValue] = useState("");
-
-  const handlePredictClick = () => {
-    setPredValue("");
-    console.log("Predict 2025 →", { site: predSite, month: predMonth, crop: selectedCrop });
-  };
-
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Typography variant="h3" fontWeight={800} sx={{ mb: 1 }}>
@@ -698,77 +682,6 @@ export default function TrendsD3Page() {
         <Typography color="text.secondary" variant="caption" sx={{ mt: 1, display: "inline-block" }}>
           {monthLabel} — {selectedYear} • Dashed = forecast • Solid = actuals
         </Typography>
-      </Paper>
-
-      {/* ========================== 2025 PREDICTIONS ========================== */}
-      <Divider sx={{ my: 3 }} />
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
-        2025 Predictions
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Choose a station and month to request a 2025 forecast. (This panel is wired for the UI now;
-        connect it to a backend endpoint to return the predicted temperature.)
-      </Typography>
-
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="pred-site-label">States</InputLabel>
-              <Select
-                labelId="pred-site-label"
-                label="States"
-                value={predSite}
-                onChange={(e) => setPredSite(e.target.value)}
-              >
-                {baseStationNames.map((name) => (
-                  <MenuItem key={name} value={name}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="pred-month-label">Month</InputLabel>
-              <Select
-                labelId="pred-month-label"
-                label="Month"
-                value={predMonth}
-                onChange={(e) => setPredMonth(Number(e.target.value))}
-              >
-                {MONTHS.map((m) => (
-                  <MenuItem key={m.value} value={m.value}>
-                    {m.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Predicted Temp (°C)"
-              value={predValue}
-              InputProps={{ readOnly: true }}
-              placeholder="—"
-            />
-          </Grid>
-
-          <Grid item xs={12} md="auto">
-            <Button
-              variant="contained"
-              onClick={handlePredictClick}
-              disabled={!predSite || !predMonth}
-            >
-              Predict
-            </Button>
-          </Grid>
-        </Grid>
       </Paper>
     </Box>
   );
