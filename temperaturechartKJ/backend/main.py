@@ -362,7 +362,7 @@ def forecast_month(
     """
     chosen_raw = [s.strip() for s in states.split(",") if s.strip()]
     if not chosen_raw:
-        return []
+        return {"Invalid Station"}
 
     # pick model (query param overrides server default)
     model_key = (model or CONFIG["default_model"]).lower()
