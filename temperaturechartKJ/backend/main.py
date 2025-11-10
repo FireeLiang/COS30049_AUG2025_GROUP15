@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import calendar
-from typing import List, Dict, Iterable, Tuple
+from typing import List, Dict, Iterable, Tuple, Optional
 
 import pandas as pd
 from fastapi import FastAPI, Query, HTTPException
@@ -14,7 +14,7 @@ from pydantic import BaseModel
 # but we only *train* on 2023 & 2024 rows)
 # ---------------------------------------------------------------------
 CSV_PATH = "temperature_daily_clean.csv"
-CROPS_CSV_PATH = "Australian_Crop_Suitability.csv"  # <— new
+CROPS_CSV_PATH = "Australian_Crop_Suitability.csv"  # crops table used by /crops & /crop/limits
 
 
 def load_master() -> pd.DataFrame:
@@ -83,7 +83,7 @@ CROPS = load_crops()
 # ---------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------
-app = FastAPI(title="Seasonal Temperature API", version="1.3")
+app = FastAPI(title="Seasonal Temperature API", version="1.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,6 +91,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------
+# Small, in-memory configuration (updated via PUT /config)
+# ---------------------------------------------------------------------
+ALLOWED_MODELS = {"polynomial", "decision_tree", "random_forest"}
+CONFIG: Dict[str, str] = {
+    "default_model": "random_forest",  # used when /model/forecast has no ?model=
+}
+
+class ConfigUpdate(BaseModel):
+    default_model: Optional[str] = None
+
 
 # ---------------------------------------------------------------------
 # Helpers
@@ -120,7 +132,6 @@ def _canon(s: str) -> str:
     """Light canonicalization for consistent tokenization."""
     s = s.lower().strip()
     s = s.replace("creesy", "cressy")            # common variant
-    s = s.replace("brumbys", "brumbys")          # keep as-is but normalized
     s = YEAR_RE.sub(" ", s)                      # remove years
     s = s.replace("average", " ")                # ignore 'Average'
     s = _WORD_CLEAN_RE.sub(" ", s)               # remove punctuation
@@ -180,6 +191,51 @@ def _states_2025_labels() -> List[str]:
     return sorted(labels)
 
 # ---------------------------------------------------------------------
+# Meta / admin endpoints (satisfy multi-method requirement)
+# ---------------------------------------------------------------------
+@app.get("/status")
+def status():
+    """Lightweight health + metadata endpoint (GET)."""
+    return {
+        "ok": True,
+        "version": app.version,
+        "default_model": CONFIG["default_model"],
+        "years": YEAR_CHOICES,
+        "states_count": len(_HIST_NAMES),
+        "crops_count": 0 if CROPS is None or CROPS.empty else int(CROPS.shape[0]),
+        "endpoints": [
+            "/status",
+            "/config (PUT)",
+            "/states",
+            "/states_2025",
+            "/years",
+            "/months",
+            "/crops",
+            "/crop/limits",
+            "/temps",
+            "/model/forecast",
+            "/month_name",
+        ],
+    }
+
+
+@app.put("/config")
+def update_config(patch: ConfigUpdate):
+    """
+    Update in-memory config (PUT).
+    - default_model: one of {'polynomial','decision_tree','random_forest'}
+    """
+    if patch.default_model is not None:
+        m = patch.default_model.strip().lower()
+        if m not in ALLOWED_MODELS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid model '{patch.default_model}'. Allowed: {sorted(ALLOWED_MODELS)}",
+            )
+        CONFIG["default_model"] = m
+    return {"ok": True, **CONFIG}
+
+# ---------------------------------------------------------------------
 # Reference endpoints used by the UI
 # ---------------------------------------------------------------------
 @app.get("/states", response_model=List[str])
@@ -201,7 +257,7 @@ def get_years() -> List[int]:
 def get_months() -> List[int]:
     return list(range(1, 12 + 1))
 
-# ----------------------- NEW: Crops reference -------------------------
+# ----------------------- Crops reference -------------------------
 @app.get("/crops", response_model=List[str])
 def list_crops() -> List[str]:
     if CROPS.empty:
@@ -291,7 +347,7 @@ def forecast_month(
     month: int = Query(..., ge=1, le=12),
     year: int = Query(..., ge=2023, le=2025),
     states: str = Query(..., description="Comma-separated display labels"),
-    model: str = Query("random_forest", description="polynomial | decision_tree | random_forest"),
+    model: Optional[str] = Query(None, description="polynomial | decision_tree | random_forest"),
 ):
     """
     If year is 2023/2024:
@@ -301,10 +357,20 @@ def forecast_month(
       - 'states' can be the display labels ending with '2025 ...';
         we resolve them back to the best matching historical name(s),
         train on 2023/2024, and predict for 2025.
+
+    If 'model' is omitted, the app's CONFIG['default_model'] is used.
     """
     chosen_raw = [s.strip() for s in states.split(",") if s.strip()]
     if not chosen_raw:
         return []
+
+    # pick model (query param overrides server default)
+    model_key = (model or CONFIG["default_model"]).lower()
+    if model_key not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model '{model}'. Allowed: {sorted(ALLOWED_MODELS)}",
+        )
 
     chosen_resolved = [
         _resolve_to_historical(s) if year == 2025 else s for s in chosen_raw
@@ -312,7 +378,7 @@ def forecast_month(
 
     results: List[ForecastRow] = []
     for sname_display, sname_hist in zip(chosen_raw, chosen_resolved):
-        preds = forecast_year_month(MASTER, sname_hist, year, month, model_key=model)
+        preds = forecast_year_month(MASTER, sname_hist, year, month, model_key=model_key)
         for p in preds:
             results.append(
                 ForecastRow(
