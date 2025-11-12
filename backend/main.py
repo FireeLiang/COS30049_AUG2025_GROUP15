@@ -9,14 +9,28 @@ from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------
-# Load & CLEAN master data once (CSV contains 2023/2024/2025 labels,
-# but we only *train* on 2023 & 2024 rows)
-# ---------------------------------------------------------------------
+# =====================================================================
+#                 NEW RAINFALL IMPORTS
+# =====================================================================
+from modelling import forecast_year_month
+from rainfall_modelling import forecast_rainfall_stacked
+
+
+# =====================================================================
+#                 DATASET PATHS
+# =====================================================================
+# --- Temperature ---
 CSV_PATH = "datasets/temperature_daily_clean.csv"
 CROPS_CSV_PATH = "datasets/Australian_Crop_Suitability.csv"  # crops table used by /crops & /crop/limits
 
+# --- Rainfall ---
+RAINFALL_CSV_PATH = "datasets/monthly_rainfall_summary.csv"
+RAINFALL_CROPS_CSV_PATH = "datasets/crop_rainfall_suitability.csv"
 
+
+# =====================================================================
+#                 DATA LOADING: TEMPERATURE
+# =====================================================================
 def load_master() -> pd.DataFrame:
     df = pd.read_csv(CSV_PATH)
 
@@ -76,14 +90,71 @@ def load_crops() -> pd.DataFrame:
 
     return cdf
 
+# =====================================================================
+#                 DATA LOADING: RAINFALL (NEW)
+# =====================================================================
+def load_rainfall_master() -> pd.DataFrame:
+    """
+    Loads historical rainfall data.
+    Expected cols: Bureau of Meteorology station number,Year,Month,Total_Monthly_Rainfall_mm
+    """
+    try:
+        df = pd.read_csv(RAINFALL_CSV_PATH)
+    except Exception:
+        print("--- WARNING: Could not load rainfall CSV ---")
+        return pd.DataFrame(columns=["Bureau of Meteorology station number", "Year", "Month", "Total_Monthly_Rainfall_mm"])
+    
+    # Clean column names
+    df.columns = df.columns.str.strip()
+    
+    # Ensure numeric types
+    for col in ["Year", "Month", "Total_Monthly_Rainfall_mm", "Bureau of Meteorology station number"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    df = df.dropna()
+    return df
+
+
+def load_rainfall_crops() -> pd.DataFrame:
+    """
+    Loads crop rainfall suitability data.
+    Expected cols: Crop,Rainfall_Min,Rainfall_Max
+    """
+    try:
+        cdf = pd.read_csv(RAINFALL_CROPS_CSV_PATH)
+    except Exception:
+        print("--- WARNING: Could not load rainfall crop suitability CSV ---")
+        return pd.DataFrame(columns=["Crop", "Rainfall_Min", "Rainfall_Max"])
+    
+    cdf.columns = cdf.columns.str.strip()
+
+    for col in ["Rainfall_Min", "Rainfall_Max"]:
+        if col in cdf.columns:
+            cdf[col] = pd.to_numeric(cdf[col], errors="coerce")
+    
+    if "Crop" in cdf.columns:
+        cdf["Crop"] = cdf["Crop"].astype(str).str.strip()
+
+    cdf = cdf.dropna()
+    return cdf
+
+
+# =====================================================================
+#                 LOAD ALL DATA ON STARTUP
+# =====================================================================
 MASTER = load_master()
 CROPS = load_crops()
+
+# --- New Rainfall DataFrames ---
+RAINFALL_MASTER = load_rainfall_master()
+RAINFALL_CROPS = load_rainfall_crops()
+
 
 # ---------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------
-app = FastAPI(title="Seasonal Temperature API", version="1.4")
+app = FastAPI(title="Seasonal Forecasting API", version="1.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -104,9 +175,9 @@ class ConfigUpdate(BaseModel):
     default_model: Optional[str] = None
 
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
+# =====================================================================
+#                 HELPERS: TEMPERATURE
+# =====================================================================
 YEAR_CHOICES = [2023, 2024, 2025]  # 2025 = forecast-only
 
 
@@ -203,9 +274,13 @@ def status():
         "years": YEAR_CHOICES,
         "states_count": len(_HIST_NAMES),
         "crops_count": 0 if CROPS is None or CROPS.empty else int(CROPS.shape[0]),
+        # New rainfall counts
+        "rainfall_stations_count": 0 if RAINFALL_MASTER.empty else RAINFALL_MASTER["Bureau of Meteorology station number"].nunique(),
+        "rainfall_crops_count": 0 if RAINFALL_CROPS.empty else RAINFALL_CROPS.shape[0],
         "endpoints": [
             "/status",
             "/config (PUT)",
+            # Temperature
             "/states",
             "/states_2025",
             "/years",
@@ -214,7 +289,12 @@ def status():
             "/crop/limits",
             "/temps",
             "/model/forecast",
-            "/month_name",
+            # Rainfall
+            "/rainfall/stations",
+            "/rainfall/crops",
+            "/crop/rainfall-limits",
+            "/rainfall/actuals",
+            "/model/rainfall-forecast",
         ],
     }
 
@@ -235,9 +315,9 @@ def update_config(patch: ConfigUpdate):
         CONFIG["default_model"] = m
     return {"ok": True, **CONFIG}
 
-# ---------------------------------------------------------------------
-# Reference endpoints used by the UI
-# ---------------------------------------------------------------------
+# =====================================================================
+#                 REFERENCE ENDPOINTS: TEMPERATURE
+# =====================================================================
 @app.get("/states", response_model=List[str])
 def get_states() -> List[str]:
     return _HIST_NAMES
@@ -288,9 +368,62 @@ def crop_limits(crop: str):
         "best": float(r["Best"]),
     }
 
-# ---------------------------------------------------------------------
-# Raw actual temps (only 2023/2024)
-# ---------------------------------------------------------------------
+# =====================================================================
+#                 REFERENCE ENDPOINTS: RAINFALL (NEW)
+# =====================================================================
+@app.get("/rainfall/stations", response_model=List[int])
+def list_rainfall_stations() -> List[int]:
+    if RAINFALL_MASTER.empty:
+        return []
+    stations = (
+        RAINFALL_MASTER["Bureau of Meteorology station number"]
+        .dropna()
+        .astype(int)
+        .drop_duplicates()
+        .sort_values()
+        .tolist()
+    )
+    return stations
+
+@app.get("/rainfall/crops", response_model=List[str])
+def list_rainfall_crops() -> List[str]:
+    if RAINFALL_CROPS.empty:
+        return []
+    names = (
+        RAINFALL_CROPS["Crop"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+        .drop_duplicates()
+        .sort_values()
+        .tolist()
+    )
+    return names
+
+
+@app.get("/crop/rainfall-limits")
+def crop_rainfall_limits(crop: str):
+    """
+    Return min/max rainfall thresholds for a crop.
+    """
+    if RAINFALL_CROPS.empty:
+        raise HTTPException(status_code=404, detail="Rainfall crop table empty/unavailable")
+
+    row = RAINFALL_CROPS[RAINFALL_CROPS["Crop"].str.casefold() == crop.strip().casefold()]
+    if row.empty:
+        raise HTTPException(status_code=404, detail=f"Crop not found: {crop}")
+
+    r = row.iloc[0]
+    return {
+        "crop": r["Crop"],
+        "min": float(r["Rainfall_Min"]),
+        "max": float(r["Rainfall_Max"]),
+    }
+
+
+# =====================================================================
+#                 ACTUAL DATA API: TEMPERATURE
+# =====================================================================
 class TempRow(BaseModel):
     state: str
     day: int
@@ -328,12 +461,61 @@ def get_monthly_temps(
         for r in out.itertuples(index=False)
     ]
 
-# ---------------------------------------------------------------------
-# Forecast endpoints (2023/2024 *or* 2025)
-# ---------------------------------------------------------------------
-from modelling import forecast_year_month  # noqa: E402
+# =====================================================================
+#                 ACTUAL DATA API: RAINFALL (NEW)
+# =====================================================================
+class RainfallActualRow(BaseModel):
+    station: int
+    year: int
+    month: int
+    rainfall: float
+
+@app.get("/rainfall/actuals", response_model=List[RainfallActualRow])
+def get_monthly_rainfall(
+    year: int = Query(..., ge=2023, le=2024),
+    stations: str = Query(..., description="Comma-separated station IDs"),
+):
+    try:
+        chosen_stations = [int(s.strip()) for s in stations.split(",") if s.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid station ID. Must be integer.")
+        
+    if not chosen_stations:
+        return []
+
+    df = RAINFALL_MASTER[
+        (RAINFALL_MASTER["Year"] == year)
+        & (RAINFALL_MASTER["Bureau of Meteorology station number"].isin(chosen_stations))
+    ].copy()
+
+    if df.empty:
+        return []
+
+    out = (
+        df[["Bureau of Meteorology station number", "Year", "Month", "Total_Monthly_Rainfall_mm"]]
+        .dropna()
+        .rename(columns={
+            "Bureau of Meteorology station number": "station",
+            "Year": "year",
+            "Month": "month",
+            "Total_Monthly_Rainfall_mm": "rainfall"
+        })
+        .sort_values(["station", "year", "month"])
+    )
+    return [
+        RainfallActualRow(
+            station=int(r.station),
+            year=int(r.year),
+            month=int(r.month),
+            rainfall=float(r.rainfall)
+        )
+        for r in out.itertuples(index=False)
+    ]
 
 
+# =====================================================================
+#                 FORECAST API: TEMPERATURE
+# =====================================================================
 class ForecastRow(BaseModel):
     state: str
     year: int
@@ -362,7 +544,7 @@ def forecast_month(
     """
     chosen_raw = [s.strip() for s in states.split(",") if s.strip()]
     if not chosen_raw:
-        return {"Invalid Station"}
+        return [] # Changed from {"Invalid Station"} to be a valid empty list
 
     # pick model (query param overrides server default)
     model_key = (model or CONFIG["default_model"]).lower()
@@ -389,6 +571,55 @@ def forecast_month(
                     yhat=float(p["yhat"]),
                 )
             )
+    return results
+
+# =====================================================================
+#                 FORECAST API: RAINFALL (NEW)
+# =====================================================================
+class RainfallForecastRow(BaseModel):
+    station: int
+    year: int
+    month: int
+    yhat: float
+
+@app.get("/model/rainfall-forecast", response_model=List[RainfallForecastRow])
+def forecast_rainfall(
+    year: int = Query(..., ge=2025, le=2025, description="Only 2025 forecast is supported"),
+    stations: str = Query(..., description="Comma-separated station IDs"),
+):
+    """
+    Trains on all historical data and forecasts the 12 months of 2025
+    for the selected station(s).
+    """
+    try:
+        chosen_stations = [int(s.strip()) for s in stations.split(",") if s.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid station ID. Must be integer.")
+        
+    if not chosen_stations:
+        return []
+    
+    if RAINFALL_MASTER.empty:
+        raise HTTPException(status_code=500, detail="Rainfall model not loaded. Check data file.")
+    
+    # Run the stacked model forecast
+    # This function is imported from rainfall_modelling.py
+    forecasts = forecast_rainfall_stacked(
+        historical_df=RAINFALL_MASTER,
+        station_ids=chosen_stations,
+        target_year=year
+    )
+    
+    # Format for Pydantic response model
+    results = [
+        RainfallForecastRow(
+            station=int(f["Bureau of Meteorology station number"]),
+            year=int(f["Year"]),
+            month=int(f["Month"]),
+            yhat=float(f["Forecasted_Rainfall_mm"])
+        ) for f in forecasts
+    ]
+    
     return results
 
 # ---------------------------------------------------------------------
