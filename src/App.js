@@ -4,7 +4,8 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 
 // Import your page components
 import TrendsD3Page from './TrendsD3Page';
-import SamplePage from './SamplePage';
+import MapsD3Page from './MapsD3Page';
+import RainfallD3Page from './RainfallD3Page';
 
 // A simple component for the "Home" page (/)
 function HomePage() {
@@ -36,10 +37,13 @@ function App() {
               <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>Home</Link>
             </li>
             <li>
-              <Link to="/TrendsD3Page" style={{ color: 'white', textDecoration: 'none' }}>Trends (Page 1)</Link>
+              <Link to="/TrendsD3Page" style={{ color: 'white', textDecoration: 'none' }}>TrendsD3Page</Link>
             </li>
             <li>
-              <Link to="/SamplePage" style={{ color: 'white', textDecoration: 'none' }}>Sample (Page 2)</Link>
+              <Link to="/MapsD3Page" style={{ color: 'white', textDecoration: 'none' }}>MapsD3Page</Link>
+            </li>
+            <li>
+              <Link to="/RainfallD3Page" style={{ color: 'white', textDecoration: 'none' }}>RainfallD3Page</Link>
             </li>
           </ul>
         </nav>
@@ -49,7 +53,8 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/TrendsD3Page" element={<TrendsD3Page />} />
-          <Route path="/SamplePage" element={<SamplePage />} />
+          <Route path="/MapsD3Page" element={<MapsD3Page />} />
+          <Route path="/RainfallD3Page" element={<RainfallD3Page />} />
         </Routes>
         
       </div>
