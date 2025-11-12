@@ -12,8 +12,6 @@ import {
   OutlinedInput,
   Stack,
   Paper,
-  FormControlLabel,
-  Switch,
 } from "@mui/material";
 
 /* =========================================================================
@@ -83,7 +81,7 @@ export default function TrendsD3Page() {
   // Controls (chart)
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedYear, setSelectedYear] = useState(2024);
-  const [showActuals, setShowActuals] = useState(true);
+  const [showActuals] = useState(true);
 
   // Crop selector + limits
   const [cropList, setCropList] = useState([]);
@@ -218,28 +216,34 @@ export default function TrendsD3Page() {
       setLoading(true);
       setErrors("");
       try {
-        // Forecast
-        const fParams = new URLSearchParams({
-          year: String(selectedYear),
-          month: String(selectedMonth),
-          states: selectedStates.join(","),
-        });
-        const forecast = await getJSON(`${API_BASE}/model/forecast?${fParams.toString()}`);
-        if (!ignore) setForecastRows(forecast || []);
-
-        // Actuals overlay (only for 2023/2024)
-        if (!ignore) {
-          if (showActuals && (selectedYear === 2023 || selectedYear === 2024)) {
+        if (selectedYear === 2025) {
+          // 2025: predictions ONLY
+          const fParams = new URLSearchParams({
+            year: String(selectedYear),
+            month: String(selectedMonth),
+            states: selectedStates.join(","),
+          });
+          const forecast = await getJSON(`${API_BASE}/model/forecast?${fParams.toString()}`);
+          if (!ignore) {
+            setForecastRows(forecast || []);
+            setActualRows([]); // no actuals for 2025
+          }
+        } else {
+          // 2023/2024: actuals ONLY
+          if (!ignore) setForecastRows([]); // ensure no dashed lines
+          if (showActuals) {
             const aParams = new URLSearchParams({
               month: String(selectedMonth),
               year: String(selectedYear),
               states: selectedStates.join(","),
             });
             const actual = await getJSON(`${API_BASE}/temps?${aParams.toString()}`);
-            setActualRows(
-              (actual || []).map((r) => ({ state: r.state, day: +r.day, temp: +r.temp }))
-            );
-          } else {
+            if (!ignore) {
+              setActualRows(
+                (actual || []).map((r) => ({ state: r.state, day: +r.day, temp: +r.temp }))
+              );
+            }
+          } else if (!ignore) {
             setActualRows([]);
           }
         }
@@ -556,18 +560,6 @@ export default function TrendsD3Page() {
             ))}
           </Select>
         </FormControl>
-
-        <FormControlLabel
-          control={
-            <Switch
-              checked={showActuals}
-              onChange={(e) => setShowActuals(e.target.checked)}
-              disabled={!(selectedYear === 2023 || selectedYear === 2024)}
-            />
-          }
-          label="Show actuals (2023/2024 only)"
-          sx={{ ml: 1 }}
-        />
 
         {/* States (filtered by year, includes synthetic 2025 names) */}
         <FormControl size="small" sx={{ minWidth: 300, flexGrow: 1 }}>
