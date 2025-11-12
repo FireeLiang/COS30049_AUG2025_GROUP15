@@ -12,6 +12,7 @@ import {
   Chip,
   OutlinedInput,
   Paper,
+  ClickAwayListener, 
 } from "@mui/material";
 
 // Import CSS
@@ -67,22 +68,20 @@ function RainfallD3Page() {
   const [chartData, setChartData] = useState([]); // Processed data for D3
   const [cropLimits, setCropLimits] = useState(null); // { min, max }
   const [error, setError] = useState(null);
+  const [barDomain, setBarDomain] = useState([]); // Domain for the bars
 
   // ======================================================================
-  // --- MOVED COLOR SCALE HERE ---
-  // Define the color scale in the component body using useMemo
-  // so both the D3 chart and the JSX Legend can access it.
+  // --- COLOR SCALE ---
   // ======================================================================
   const color = useMemo(() => 
     d3.scaleOrdinal()
       .domain(YEAR_OPTIONS.sort())
       .range(["#1b9e77", "#d95f02", "#7570b3"]), // Colors for 2025, 2024, 2023
-    [] // Empty dependency array means this scale is created once.
+    []
   );
 
   // --- 1. Effect to Load Dropdown Data (on mount) ---
   useEffect(() => {
-    // Fetch stations
     getJSON(`${API_BASE}/rainfall/stations`)
       .then(setAllStations)
       .catch((err) => {
@@ -90,7 +89,6 @@ function RainfallD3Page() {
         setError("Could not load stations. API down?");
       });
 
-    // Fetch rainfall crops
     getJSON(`${API_BASE}/rainfall/crops`)
       .then(setAllCrops)
       .catch((err) => {
@@ -98,10 +96,11 @@ function RainfallD3Page() {
       });
   }, []);
 
-  // --- 2. Effect to Load Chart Data (when selections change) ---
+  // --- 2. Effect to Load Chart Data ---
   useEffect(() => {
     if (!selectedStations.length || !selectedYears.length) {
-      setChartData([]); // Clear chart if no station/year selected
+      setChartData([]);
+      setBarDomain([]);
       return;
     }
 
@@ -109,22 +108,38 @@ function RainfallD3Page() {
     const promises = [];
 
     // --- Build fetch promises for selected years ---
+    
     if (selectedYears.includes(2025)) {
       promises.push(
         getJSON(`${API_BASE}/model/rainfall-forecast?year=2025&stations=${stationString}`)
-          .then(data => data.map(d => ({ ...d, year: 2025, rainfall: d.yhat, type: 'forecast' })))
+          .then(data => data.map(d => ({ 
+            ...d, 
+            rainfall: d.yhat, 
+            type: 'forecast',
+            key: `2025-forecast`
+          })))
       );
     }
+    
     if (selectedYears.includes(2024)) {
       promises.push(
         getJSON(`${API_BASE}/rainfall/actuals?year=2024&stations=${stationString}`)
-          .then(data => data.map(d => ({ ...d, type: 'actual' })))
+          .then(data => data.map(d => ({ 
+            ...d, 
+            type: 'actual',
+            key: `2024-actual`
+          })))
       );
     }
+
     if (selectedYears.includes(2023)) {
       promises.push(
         getJSON(`${API_BASE}/rainfall/actuals?year=2023&stations=${stationString}`)
-          .then(data => data.map(d => ({ ...d, type: 'actual' })))
+          .then(data => data.map(d => ({ 
+            ...d, 
+            type: 'actual',
+            key: `2023-actual`
+          })))
       );
     }
 
@@ -132,31 +147,19 @@ function RainfallD3Page() {
     Promise.all(promises)
       .then((results) => {
         const flatData = results.flat();
+        setChartData(flatData);
 
-        // --- IMPORTANT: Process data ---
-        // Group by month and year, and average the rainfall
-        // This handles multiple selected stations correctly
-        const grouped = d3.group(flatData, d => d.month, d => d.year);
-
-        const processedData = [];
-        grouped.forEach((yearMap, month) => {
-          yearMap.forEach((values, year) => {
-            processedData.push({
-              month: month,
-              year: year,
-              rainfall: d3.mean(values, v => v.rainfall),
-              type: values[0].type
-            });
-          });
-        });
+        // Build the domain for the inner-most bars (year-type)
+        const newDomain = new Set(flatData.map(d => d.key));
+        setBarDomain(Array.from(newDomain).sort()); // 2023 -> 2024 -> 2025
         
-        setChartData(processedData);
         setError(null);
       })
       .catch((err) => {
         console.error("Failed to fetch chart data:", err);
         setError("Could not load chart data.");
         setChartData([]);
+        setBarDomain([]);
       });
 
   }, [selectedStations, selectedYears]);
@@ -178,13 +181,14 @@ function RainfallD3Page() {
 
   // --- 4. Effect to Render D3 Chart ---
   useEffect(() => {
-    if (!chartData || !svgRef.current) {
+    if (!chartData.length || !barDomain.length || !selectedStations.length || !svgRef.current) {
+      d3.select(svgRef.current).selectAll("*").remove(); // Clear chart
       return;
     }
 
     const svg = d3.select(svgRef.current);
     const tooltip = d3.select(tooltipRef.current);
-    svg.selectAll("*").remove(); // Clear previous render
+    svg.selectAll("*").remove();
 
     // --- Chart Dimensions ---
     const margin = { top: 20, right: 20, bottom: 50, left: 60 };
@@ -198,7 +202,7 @@ function RainfallD3Page() {
     // --- Determine Y-axis max ---
     const dataMax = d3.max(chartData, (d) => d.rainfall) || 100;
     const cropMax = cropLimits ? cropLimits.max : 0;
-    const yMax = Math.max(dataMax, cropMax) * 1.1; // Add 10% padding
+    const yMax = Math.max(dataMax, cropMax) * 1.1;
 
     // --- D3 Scales ---
     
@@ -209,12 +213,19 @@ function RainfallD3Page() {
       .range([0, width])
       .padding(0.2);
 
-    // X1 - Bars within groups (Years)
+    // X1 - Sub-groups (Stations)
     const x1 = d3
       .scaleBand()
-      .domain(selectedYears.sort())
+      .domain(selectedStations.sort((a,b) => a - b)) // Sort station IDs
       .range([0, x0.bandwidth()])
-      .padding(0.05);
+      .padding(0.1); // Padding between station groups
+
+    // X2 - Bars within sub-groups (Year-Type)
+    const x2 = d3
+      .scaleBand()
+      .domain(barDomain) // Use state: ["2023-actual", "2024-actual", "2025-forecast"]
+      .range([0, x1.bandwidth()])
+      .padding(0.05); // Padding between individual bars
 
     // Y - Rainfall
     const y = d3
@@ -223,21 +234,18 @@ function RainfallD3Page() {
       .range([height, 0]);
 
     // --- Draw Axes ---
-    // X-Axis
     g.append("g")
       .attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x0))
       .call(g => g.selectAll(".domain").remove())
       .call(g => g.selectAll("text").style("font-size", "13px"));
       
-    // Y-Axis
     g.append("g")
       .call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d} mm`))
       .call(g => g.selectAll(".domain").remove())
       .call(g => g.selectAll("line").attr("stroke", "#e0e0e0").attr("stroke-dasharray", "2,2"))
       .call(g => g.selectAll("text").style("font-size", "13px"));
       
-    // Y-Axis Label
     g.append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", 0 - margin.left + 15)
@@ -254,63 +262,63 @@ function RainfallD3Page() {
       const yMin = y(cropLimits.min);
       const yMax = y(cropLimits.max);
 
-      // Shaded green area
       g.append("rect")
-        .attr("x", 0)
-        .attr("y", yMax)
-        .attr("width", width)
-        .attr("height", yMin - yMax)
-        .attr("fill", "green")
-        .attr("opacity", 0.1);
+        .attr("x", 0).attr("y", yMax)
+        .attr("width", width).attr("height", yMin - yMax)
+        .attr("fill", "green").attr("opacity", 0.1);
 
-      // Max line
       g.append("line")
-        .attr("x1", 0)
-        .attr("y1", yMax)
-        .attr("x2", width)
-        .attr("y2", yMax)
-        .attr("stroke", "green")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "4,4");
+        .attr("x1", 0).attr("y1", yMax)
+        .attr("x2", width).attr("y2", yMax)
+        .attr("stroke", "green").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
         
-      // Min line
       g.append("line")
-        .attr("x1", 0)
-        .attr("y1", yMin)
-        .attr("x2", width)
-        .attr("y2", yMin)
-        .attr("stroke", "green")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "4,4");
+        .attr("x1", 0).attr("y1", yMin)
+        .attr("x2", width).attr("y2", yMin)
+        .attr("stroke", "green").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
     }
 
     // --- Draw Bars ---
+    
+    // Group data by month
+    const dataByMonth = d3.group(chartData, d => d.month);
+
     g.append("g")
       .selectAll("g")
-      // Group data by month
-      .data(d3.group(chartData, d => d.month))
+      .data(dataByMonth)
       .join("g")
         // Position the group at the correct month
         .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`)
+      
+      // Now, create sub-groups for STATIONS
+      .selectAll("g")
+      .data(d => d3.group(d[1], d => d.station)) // d[1] is data for month
+      .join("g")
+        // Position the station group within the month
+        .attr("transform", d => `translate(${x1(d[0])}, 0)`) // d[0] is station ID
+      
+      // Finally, draw the rects for each YEAR-TYPE
       .selectAll("rect")
-      // Data for this group is the array of [year, data]
-      .data(d => d[1])
+      .data(d => d[1]) // d[1] is data for that station (in that month)
       .join("rect")
-        // Position the bar at the correct year
-        .attr("x", d => x1(d.year))
-        .attr("y", d => y(d.rainfall))
-        .attr("width", x1.bandwidth())
-        .attr("height", d => height - y(d.rainfall))
-        .attr("fill", d => color(d.year)) // Use the color scale from component scope
-        .attr("opacity", d => d.type === 'forecast' ? 0.7 : 1.0) // Make forecast slightly transparent
+        .attr("x", d => x2(d.key)) // d.key is "2023-actual"
+        
+        // --- MODIFICATION FOR 0-VALUE ---
+        .attr("y", d => (d.rainfall === 0 ? y(0) - 1 : y(d.rainfall))) // 1px *above* the base
+        .attr("height", d => (d.rainfall === 0 ? 1 : height - y(d.rainfall))) // 1px tall
+        .attr("opacity", d => (d.rainfall === 0) ? 0.4 : (d.type === 'forecast' ? 0.7 : 1.0))
+        // --- END MODIFICATION ---
+
+        .attr("width", x2.bandwidth())
+        .attr("fill", d => color(d.year)) // Color by year
         
         // --- Tooltip Events ---
         .on("mouseover", (event, d) => {
           tooltip.style("opacity", 1);
           tooltip.html(`
             <strong>${d.year} - ${MONTH_MAP.get(d.month)}</strong><br/>
-            ${d.type === 'forecast' ? 'Forecast' : 'Actual'}: ${d.rainfall.toFixed(1)} mm
-            ${selectedStations.length > 1 ? '<br/>(Avg. of ' + selectedStations.length + ' stations)' : ''}
+            <strong>Station: ${d.station}</strong><br/>
+            <span style="text-transform: capitalize;">${d.type}</span>: ${d.rainfall.toFixed(1)} mm
           `);
         })
         .on("mousemove", (event) => {
@@ -322,7 +330,7 @@ function RainfallD3Page() {
           tooltip.style("opacity", 0);
         });
 
-  }, [chartData, cropLimits, selectedYears, color]); // Added 'color' to dependency array
+  }, [chartData, cropLimits, barDomain, color, selectedStations]);
 
   // --- Handlers for MUI Selects ---
   const handleYearChange = (event) => {
@@ -363,7 +371,6 @@ function RainfallD3Page() {
       {/* Controls */}
       <Paper elevation={0} variant="outlined" sx={{ p: 2, mt: 2, borderRadius: "14px" }}>
         <Box className="controls">
-          {/* --- Year Selector (Multi) --- */}
           <FormControl sx={{ m: 1, minWidth: 160 }} size="small">
             <InputLabel id="year-multi-label">Years</InputLabel>
             <Select
@@ -389,7 +396,6 @@ function RainfallD3Page() {
             </Select>
           </FormControl>
 
-          {/* --- Station Selector (Multi) --- */}
           <FormControl sx={{ m: 1, minWidth: 240, maxWidth: 400 }} size="small">
             <InputLabel id="station-multi-label">Stations</InputLabel>
             <Select
@@ -416,7 +422,6 @@ function RainfallD3Page() {
             </Select>
           </FormControl>
 
-          {/* --- Crop Selector (Single) --- */}
           <FormControl sx={{ m: 1, minWidth: 180 }} size="small">
             <InputLabel id="crop-select-label">Crop</InputLabel>
             <Select
@@ -441,6 +446,7 @@ function RainfallD3Page() {
 
       {/* Legend */}
       <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
+        {/* Year Colors */}
         {selectedYears.sort().map((year) => (
           <Box key={year} sx={{ display: "inline-flex", alignItems: "center" }}>
             <Box
@@ -448,14 +454,23 @@ function RainfallD3Page() {
                 width: 12,
                 height: 12,
                 borderRadius: "2px",
-                bgcolor: color(year), // This will now work
+                bgcolor: color(year),
                 mr: 1,
-                opacity: year === 2025 ? 0.7 : 1.0
               }}
             />
-            <Typography variant="body2">{year}{year === 2025 ? " (Forecast)" : " (Actual)"}</Typography>
+            <Typography variant="body2">{year}</Typography>
           </Box>
         ))}
+        {/* Bar Type Legend */}
+        <Box sx={{ display: "inline-flex", alignItems: "center", ml: 2 }}>
+            <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: "grey.500", mr: 1, opacity: 1.0 }} />
+            <Typography variant="body2">Actual</Typography>
+        </Box>
+        <Box sx={{ display: "inline-flex", alignItems: "center" }}>
+            <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: "grey.500", mr: 1, opacity: 0.7 }} />
+            <Typography variant="body2">Forecast</Typography>
+        </Box>
+
         {cropLimits && (
           <Chip
             sx={{ ml: 1 }}
