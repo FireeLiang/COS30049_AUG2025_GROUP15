@@ -13,8 +13,8 @@ from pydantic import BaseModel
 # Load & CLEAN master data once (CSV contains 2023/2024/2025 labels,
 # but we only *train* on 2023 & 2024 rows)
 # ---------------------------------------------------------------------
-CSV_PATH = "temperature_daily_clean.csv"
-CROPS_CSV_PATH = "Australian_Crop_Suitability.csv"  # crops table used by /crops & /crop/limits
+CSV_PATH = "datasets/temperature_daily_clean.csv"
+CROPS_CSV_PATH = "datasets/Australian_Crop_Suitability.csv"  # crops table used by /crops & /crop/limits
 
 
 def load_master() -> pd.DataFrame:
