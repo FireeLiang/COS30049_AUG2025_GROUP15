@@ -7,16 +7,131 @@ import TrendsD3Page from './TrendsD3Page';
 import MapsD3Page from './MapsD3Page';
 import RainfallD3Page from './RainfallD3Page';
 
-// A simple component for the "Home" page (/)
+// Hero-style Home page matching the prototype
 function HomePage() {
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Home Page</h1>
-      <p>Welcome! This is the main landing page.</p>
-      <p>Please use the links in the navigation to go to other pages.</p>
+    <div style={styles.wrap}>
+      <div style={styles.hero}>
+        {/* Left: copy */}
+        <div style={styles.copy}>
+          <h1 style={styles.h1}>
+            <span style={styles.h1Line1}>AI</span>
+            <span style={styles.h1Line2}>FARMER</span>
+          </h1>
+
+          <p style={styles.lead}>
+            Today’s weather, informed by history — helping you decide if it’s the right day to
+            plant.
+          </p>
+
+          <h2 style={styles.subhead}>How is Today’s Weather and Forecast Calculated?</h2>
+          <p style={styles.body}>
+            Our weather forecasts are powered by machine learning, analyzing historical weather
+            data from the past few years. While not based on real-time data, this approach helps
+            provide accurate planting recommendations and forecasts.
+          </p>
+
+          <p style={styles.credit}>Presented by 1Bit.</p>
+
+          <Link to="/TrendsD3Page" style={styles.cta}>
+            View Temperature
+          </Link>
+        </div>
+
+        {/* Right: illustration */}
+        <div style={styles.illustrationWrap}>
+          {/* Replace the src with your asset path if you have a file in /public */}
+          <img
+            src="https://images.unsplash.com/photo-1604328698692-f76ea9498e76?q=80&w=1200&auto=format&fit=crop"
+            alt="Farm illustration"
+            style={styles.illustration}
+          />
+          {/* If you have your own SVG/PNG (e.g., /hero-farmer.svg), use: src='/hero-farmer.svg' */}
+        </div>
+      </div>
     </div>
   );
 }
+
+const styles = {
+  wrap: {
+    padding: "32px 20px",
+  },
+  hero: {
+    maxWidth: 1200,
+    margin: "0 auto",
+    display: "flex",
+    gap: 32,
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+  },
+  copy: {
+    flex: "1 1 440px",
+    minWidth: 320,
+  },
+  h1: {
+    margin: 0,
+    lineHeight: 1.02,
+    letterSpacing: "-0.02em",
+  },
+  h1Line1: {
+    display: "block",
+    fontSize: 88,
+    fontWeight: 900,
+  },
+  h1Line2: {
+    display: "block",
+    fontSize: 88,
+    fontWeight: 900,
+  },
+  lead: {
+    marginTop: 16,
+    fontSize: 20,
+    color: "#334155",
+    maxWidth: 560,
+  },
+  subhead: {
+    marginTop: 28,
+    fontSize: 22,
+    fontWeight: 700,
+  },
+  body: {
+    marginTop: 8,
+    fontSize: 18,
+    color: "#334155",
+    maxWidth: 560,
+  },
+  credit: {
+    marginTop: 24,
+    fontWeight: 600,
+  },
+  cta: {
+    display: "inline-block",
+    marginTop: 12,
+    padding: "12px 18px",
+    borderRadius: 8,
+    background: "#2f6e41",
+    color: "#fff",
+    textDecoration: "none",
+    fontWeight: 700,
+    transition: "transform .08s ease, box-shadow .08s ease, opacity .2s",
+    boxShadow: "0 6px 18px rgba(0,0,0,.12)",
+  },
+  illustrationWrap: {
+    flex: "0 1 480px",
+    minWidth: 320,
+    display: "grid",
+    placeItems: "center",
+  },
+  illustration: {
+    width: "100%",
+    height: "auto",
+    borderRadius: "50%",
+    objectFit: "cover",
+    aspectRatio: "1 / 1",
+  },
+};
 
 function App() {
   return (
