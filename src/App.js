@@ -7,6 +7,10 @@ import TrendsD3Page from './TrendsD3Page';
 import MapsD3Page from './MapsD3Page';
 import RainfallD3Page from './RainfallD3Page';
 
+// STEP 1: Import your image from its new location in the 'src' folder.
+// Use forward slashes '/' for paths in imports.
+import farmerImage from './image/not_baymax.png';
+
 // Hero-style Home page matching our prototype
 function HomePage() {
   return (
@@ -42,7 +46,7 @@ function HomePage() {
         <div style={styles.illustrationWrap}>
           {/* Replace the src with your asset path if you have your own file in /public */}
           <img
-            src="https://images.unsplash.com/photo-1604328698692-f76ea9498e76?q=80&w=1200&auto=format&fit=crop"
+            src={farmerImage}
             alt="Farm illustration"
             style={styles.illustration}
           />
