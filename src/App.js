@@ -2,12 +2,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 
-// Import your page components
+// Import our page components
 import TrendsD3Page from './TrendsD3Page';
 import MapsD3Page from './MapsD3Page';
 import RainfallD3Page from './RainfallD3Page';
 
-// Hero-style Home page matching the prototype
+// Hero-style Home page matching our prototype
 function HomePage() {
   return (
     <div style={styles.wrap}>
@@ -38,9 +38,9 @@ function HomePage() {
           </Link>
         </div>
 
-        {/* Right: illustration */}
+        {/* Right: illustration/pic */}
         <div style={styles.illustrationWrap}>
-          {/* Replace the src with your asset path if you have a file in /public */}
+          {/* Replace the src with your asset path if you have your own file in /public */}
           <img
             src="https://images.unsplash.com/photo-1604328698692-f76ea9498e76?q=80&w=1200&auto=format&fit=crop"
             alt="Farm illustration"
