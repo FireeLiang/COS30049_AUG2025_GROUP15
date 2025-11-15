@@ -291,7 +291,7 @@ export default function TrendsD3Page() {
     svg.selectAll("*").remove();
 
     const { w, h } = size;
-    const margin = { top: 8, right: 24, bottom: 40, left: 56 };
+    const margin = { top: 20, right: 24, bottom: 40, left: 56 };
     const innerW = w - margin.left - margin.right;
     const innerH = h - margin.top - margin.bottom;
 
@@ -341,10 +341,11 @@ export default function TrendsD3Page() {
       .call((gy) =>
         gy
           .append("text")
-          .attr("x", -6)
-          .attr("y", -10)
+          .attr("transform", `rotate(-90)`)
+          .attr("x", -innerH / 2)
+          .attr("y", -40)
           .attr("fill", "#334155")
-          .attr("text-anchor", "start")
+          .attr("text-anchor", "middle")
           .attr("font-size", 12)
           .text("Temperature (°C)")
       );
@@ -404,14 +405,17 @@ export default function TrendsD3Page() {
         );
     }
 
+    // ========= Lines =========
     // Forecast (dashed)
     g.append("g")
+      .attr("class", "forecast-layer")
       .selectAll("path.forecast")
       .data(forecastSeries, (d) => d.key)
       .join((enter) =>
         enter
           .append("path")
           .attr("class", "forecast")
+          .attr("data-key", (d) => d.key)
           .attr("fill", "none")
           .attr("stroke-width", 2.5)
           .attr("stroke-linecap", "round")
@@ -427,12 +431,14 @@ export default function TrendsD3Page() {
 
     // Actuals (solid)
     g.append("g")
+      .attr("class", "actual-layer")
       .selectAll("path.actual")
       .data(actualSeries, (d) => d.key)
       .join((enter) =>
         enter
           .append("path")
           .attr("class", "actual")
+          .attr("data-key", (d) => d.key)
           .attr("fill", "none")
           .attr("stroke-width", 1.5)
           .attr("stroke-linecap", "round")
@@ -441,6 +447,28 @@ export default function TrendsD3Page() {
           .attr("d", (d) => line(d.values))
           .attr("opacity", 0.9)
       );
+
+    // ========= Focus overlay (line + dot) =========
+    const focusLayer = g.append("g")
+      .attr("class", "focus-layer")
+      .style("display", "none");
+
+    const focusLine = focusLayer
+      .append("line")
+      .attr("class", "focus-line")
+      .attr("y1", 0)
+      .attr("y2", innerH)
+      .attr("stroke", "#9ca3af")
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "4,4");
+
+    const focusDot = focusLayer
+      .append("circle")
+      .attr("class", "focus-dot")
+      .attr("r", 4.5)
+      .attr("fill", "#111827")
+      .attr("stroke", "white")
+      .attr("stroke-width", 1.5);
 
     // Tooltip
     const tooltip = d3.select(tooltipRef.current);
@@ -453,42 +481,88 @@ export default function TrendsD3Page() {
       .attr("height", innerH)
       .attr("fill", "transparent")
       .on("mousemove", function (event) {
-        const [mx] = d3.pointer(event, this);
+        if (!mergedForHover.length) return;
+
+        const [mx, my] = d3.pointer(event, this);
         const day = x.invert(mx);
 
+        // For each series, find nearest point to cursor x
         const nearest = mergedForHover.map((s) => {
           const i = bisect(s.values, day);
           const idx = Math.max(0, Math.min(s.values.length - 1, i));
           const v = s.values[idx];
-          return { ...v, state: s.key, color: color(s.key) };
+          const screenY = y(v.temp);
+          return {
+            ...v,
+            state: s.key,
+            color: color(s.key),
+            dy: Math.abs(screenY - my),
+          };
         });
 
-        const rows = nearest
-          .sort((a, b) => d3.descending(a.temp, b.temp))
+        // Closest series = focus
+        const focused = nearest.reduce((a, b) => (a.dy < b.dy ? a : b));
+
+        // Focus styling for lines (focus-on-hover)
+        g.selectAll("path.forecast, path.actual")
+          .attr("opacity", (d) => (d.key === focused.state ? 1 : 0.25));
+
+        // Position focus line & dot
+        const clampedDay = Math.max(1, Math.min(31, Math.round(day)));
+        const cx = x(clampedDay);
+        const cy = y(focused.temp);
+
+        focusLayer.style("display", null);
+        focusLine.attr("x1", cx).attr("x2", cx);
+        focusDot.attr("cx", cx).attr("cy", cy).attr("fill", focused.color);
+
+        // Build big tooltip
+        const headerHtml = `
+          <div style="font-weight:700;margin-bottom:6px;">
+            ${monthLabel} ${selectedYear} — Day ${clampedDay}
+          </div>
+        `;
+
+        const focusedHtml = `
+          <div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #e5e7eb;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:12px;height:12px;border-radius:50%;background:${focused.color}"></span>
+              <span style="font-weight:600;">${focused.state}</span>
+              <span style="margin-left:auto;font-weight:700;">${focused.temp.toFixed(1)}°C</span>
+            </div>
+            <div style="margin-top:2px;font-size:11px;color:#4b5563;">
+              Closest to your cursor
+            </div>
+          </div>
+        `;
+
+        const othersHtml = nearest
+          .filter((n) => n.state !== focused.state)
+          .sort((a, b) => d3.ascending(a.state, b.state))
           .map(
             (n) =>
-              `<div style="display:flex;gap:8px;align-items:center">
-                 <span style="width:10px;height:10px;border-radius:50%;background:${n.color}"></span>
+              `<div style="display:flex;gap:8px;align-items:center;font-size:11px;margin-top:2px;">
+                 <span style="width:8px;height:8px;border-radius:50%;background:${n.color}"></span>
                  <span>${n.state}</span>
-                 <span style="margin-left:auto;font-weight:600">${n.temp.toFixed(1)}°C</span>
+                 <span style="margin-left:auto;font-weight:600;">${n.temp.toFixed(1)}°C</span>
                </div>`
           )
           .join("");
 
         tooltip
           .style("opacity", 1)
-          .html(
-            `<div style="font-weight:700;margin-bottom:6px">${monthLabel} ${selectedYear} — Day ${Math.round(
-              day
-            )}</div>${rows}`
-          )
-          .style("left", `${56 + x(day)}px`)
-          .style("top", `16px`);
+          .html(headerHtml + focusedHtml + (othersHtml ? othersHtml : ""))
+          .style("left", `${margin.left + cx}px`)
+          .style("top", `${margin.top + 8}px`);
       })
       .on("mouseleave", () => {
         tooltip.style("opacity", 0);
+        focusLayer.style("display", "none");
+        // Reset lines
+        g.selectAll("path.forecast").attr("opacity", 1);
+        g.selectAll("path.actual").attr("opacity", 0.9);
       });
-  // added selectedCrop so the label updates immediately when crop changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forecastSeries, actualSeries, size, color, selectedMonth, selectedYear, cropLimits, selectedCrop]);
 
   const monthLabel = MONTHS.find((m) => m.value === selectedMonth)?.label ?? "";
@@ -621,12 +695,13 @@ export default function TrendsD3Page() {
               transform: "translate(-50%, 0)",
               background: "rgba(255,255,255,0.96)",
               border: "1px solid #e5e7eb",
-              padding: "8px 10px",
-              borderRadius: 6,
+              padding: "10px 12px",
+              borderRadius: 8,
               boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
               fontSize: 12,
               opacity: 0,
               zIndex: 3,
+              maxWidth: 260,
             }}
           />
         </Box>
