@@ -41,10 +41,10 @@ function BottomNav() {
 
   // Mapping of page transitions
   const routes = [
-    { path: "/", prev: null, next: "/TrendsD3Page" },
-    { path: "/TrendsD3Page", prev: "/", next: "/MapsD3Page" },
-    { path: "/MapsD3Page", prev: "/TrendsD3Page", next: "/RainfallD3Page" },
-    { path: "/RainfallD3Page", prev: "/MapsD3Page", next: null },
+    { path: "/", prev: null, next: "/MapsD3Page" },
+    { path: "/MapsD3Page", prev: "/", next: "/TrendsD3Page" },
+    { path: "/TrendsD3Page", prev: "/MapsD3Page", next: "/RainfallD3Page" },
+    { path: "/RainfallD3Page", prev: "/TrendsD3Page", next: null },
   ];
 
   const current = routes.find((r) => r.path === location.pathname);
@@ -214,8 +214,8 @@ function App() {
         <nav style={navStyle}>
           <ul style={navListStyle}>
             <li><Link to="/" style={navLinkStyle}>Home</Link></li>
-            <li><Link to="/TrendsD3Page" style={navLinkStyle}>TrendsD3Page</Link></li>
             <li><Link to="/MapsD3Page" style={navLinkStyle}>MapsD3Page</Link></li>
+            <li><Link to="/TrendsD3Page" style={navLinkStyle}>TrendsD3Page</Link></li>
             <li><Link to="/RainfallD3Page" style={navLinkStyle}>RainfallD3Page</Link></li>
           </ul>
         </nav>
