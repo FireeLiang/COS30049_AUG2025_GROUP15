@@ -746,8 +746,16 @@ export default function TrendsD3Page() {
           </Box>
         )}
 
-        <Typography color="text.secondary" variant="caption" sx={{ mt: 1, display: "inline-block" }}>
-          {monthLabel} — {selectedYear} • Dashed = forecast • Solid = actuals
+        <Typography
+          color="text.secondary"
+          variant="caption"
+          sx={{
+            mt: 1,
+            display: "block",      // take full width
+            textAlign: "center",   // center the label
+          }}
+        >
+          {monthLabel} — {selectedYear}, Note: 2023 and 2024 are actual historical data while 2025 are predictions
         </Typography>
       </Paper>
     </Box>

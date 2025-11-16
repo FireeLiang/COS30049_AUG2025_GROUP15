@@ -1,31 +1,138 @@
 // src/App.js
-import React from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 
-// Import our page components
+// Import pages
 import TrendsD3Page from './TrendsD3Page';
 import MapsD3Page from './MapsD3Page';
 import RainfallD3Page from './RainfallD3Page';
 
-// STEP 1: Import your image from its new location in the 'src' folder.
-// Use forward slashes '/' for paths in imports.
+// Import hero image
 import farmerImage from './image/not_baymax.png';
 
-// Hero-style Home page matching our prototype
-function HomePage() {
+/* ============================================================
+   Responsive Breakpoint Hook
+   ============================================================ */
+function useBreakpoint() {
+  const getWidth = () =>
+    typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const [width, setWidth] = useState(getWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWidth(getWidth());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return {
+    width,
+    isMobile: width < 640,
+    isTablet: width >= 640 && width < 1024,
+    isDesktop: width >= 1024,
+  };
+}
+
+/* ============================================================
+   Bottom Navigation Component
+   ============================================================ */
+function BottomNav() {
+  const location = useLocation();
+  const { isMobile } = useBreakpoint();
+
+  // Mapping of page transitions
+  const routes = [
+    { path: "/", prev: null, next: "/TrendsD3Page" },
+    { path: "/TrendsD3Page", prev: "/", next: "/MapsD3Page" },
+    { path: "/MapsD3Page", prev: "/TrendsD3Page", next: "/RainfallD3Page" },
+    { path: "/RainfallD3Page", prev: "/MapsD3Page", next: null },
+  ];
+
+  const current = routes.find((r) => r.path === location.pathname);
+  if (!current) return null;
+
+  const buttonStyle = {
+    padding: isMobile ? "8px 14px" : "10px 18px",
+    fontSize: isMobile ? 14 : 16,
+    background: "#333",
+    color: "white",
+    textDecoration: "none",
+    borderRadius: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  };
+
+  const barStyle = {
+    position: "fixed",
+    bottom: 12,
+    left: 0,
+    width: "100%",
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "0 20px",
+    pointerEvents: "none", // Allows clicks only on children
+  };
+
   return (
-    <div style={styles.wrap}>
-      <div style={styles.hero}>
-        {/* Left: copy */}
-        <div style={styles.copy}>
+    <div style={barStyle}>
+      {/* Previous Button */}
+      <div style={{ pointerEvents: "auto" }}>
+        {current.prev && (
+          <Link to={current.prev} style={buttonStyle}>
+            ← Prev
+          </Link>
+        )}
+      </div>
+
+      {/* Next Button */}
+      <div style={{ pointerEvents: "auto" }}>
+        {current.next && (
+          <Link to={current.next} style={buttonStyle}>
+            Next →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Home Page (Responsive Hero)
+   ============================================================ */
+function HomePage({ isMobile, isTablet }) {
+  const wrapStyle = {
+    ...styles.wrap,
+    padding: isMobile ? "20px 12px" : "32px 20px",
+  };
+
+  const heroStyle = {
+    ...styles.hero,
+    flexDirection: isMobile ? "column-reverse" : "row",
+    textAlign: isMobile ? "center" : "left",
+    alignItems: "center",
+  };
+
+  const copyStyle = {
+    ...styles.copy,
+    alignItems: isMobile ? "center" : "flex-start",
+  };
+
+  return (
+    <div style={wrapStyle}>
+      <div style={heroStyle}>
+        {/* Left Copy */}
+        <div style={copyStyle}>
           <h1 style={styles.h1}>
-            <span style={styles.h1Line1}>AI</span>
-            <span style={styles.h1Line2}>FARMER</span>
+            <span style={{ ...styles.h1Line1, fontSize: isMobile ? 52 : isTablet ? 72 : 88 }}>
+              AI
+            </span>
+            <span style={{ ...styles.h1Line2, fontSize: isMobile ? 52 : isTablet ? 72 : 88 }}>
+              FARMER
+            </span>
           </h1>
 
           <p style={styles.lead}>
-            Today’s weather, informed by history — helping you decide if it’s the right day to
-            plant.
+            Today’s weather, informed by history — helping you decide if it’s the right day to plant.
           </p>
 
           <h2 style={styles.subhead}>How is Today’s Weather and Forecast Calculated?</h2>
@@ -36,31 +143,22 @@ function HomePage() {
           </p>
 
           <p style={styles.credit}>Presented by 1Bit.</p>
-
-          <Link to="/TrendsD3Page" style={styles.cta}>
-            View Temperature
-          </Link>
         </div>
 
-        {/* Right: illustration/pic */}
+        {/* Right Image */}
         <div style={styles.illustrationWrap}>
-          {/* Replace the src with your asset path if you have your own file in /public */}
-          <img
-            src={farmerImage}
-            alt="Farm illustration"
-            style={styles.illustration}
-          />
-          {/* If you have your own SVG/PNG (e.g., /hero-farmer.svg), use: src='/hero-farmer.svg' */}
+          <img src={farmerImage} alt="Farm" style={styles.illustration} />
         </div>
       </div>
     </div>
   );
 }
 
+/* ============================================================
+   Shared Styles
+   ============================================================ */
 const styles = {
-  wrap: {
-    padding: "32px 20px",
-  },
+  wrap: { padding: "32px 20px" },
   hero: {
     maxWidth: 1200,
     margin: "0 auto",
@@ -70,112 +168,68 @@ const styles = {
     justifyContent: "space-between",
     flexWrap: "wrap",
   },
-  copy: {
-    flex: "1 1 440px",
-    minWidth: 320,
-  },
-  h1: {
-    margin: 0,
-    lineHeight: 1.02,
-    letterSpacing: "-0.02em",
-  },
-  h1Line1: {
-    display: "block",
-    fontSize: 88,
-    fontWeight: 900,
-  },
-  h1Line2: {
-    display: "block",
-    fontSize: 88,
-    fontWeight: 900,
-  },
-  lead: {
-    marginTop: 16,
-    fontSize: 20,
-    color: "#334155",
-    maxWidth: 560,
-  },
-  subhead: {
-    marginTop: 28,
-    fontSize: 22,
-    fontWeight: 700,
-  },
-  body: {
-    marginTop: 8,
-    fontSize: 18,
-    color: "#334155",
-    maxWidth: 560,
-  },
-  credit: {
-    marginTop: 24,
-    fontWeight: 600,
-  },
-  cta: {
-    display: "inline-block",
-    marginTop: 12,
-    padding: "12px 18px",
-    borderRadius: 8,
-    background: "#2f6e41",
-    color: "#fff",
-    textDecoration: "none",
-    fontWeight: 700,
-    transition: "transform .08s ease, box-shadow .08s ease, opacity .2s",
-    boxShadow: "0 6px 18px rgba(0,0,0,.12)",
-  },
-  illustrationWrap: {
-    flex: "0 1 480px",
-    minWidth: 320,
-    display: "grid",
-    placeItems: "center",
-  },
-  illustration: {
-    width: "100%",
-    height: "auto",
-    borderRadius: "50%",
-    objectFit: "cover",
-    aspectRatio: "1 / 1",
-  },
+  copy: { flex: "1 1 440px", minWidth: 260, display: "flex", flexDirection: "column" },
+  h1: { margin: 0, lineHeight: 1.02, letterSpacing: "-0.02em" },
+  h1Line1: { display: "block", fontWeight: 900 },
+  h1Line2: { display: "block", fontWeight: 900 },
+  lead: { marginTop: 16, fontSize: 20, color: "#334155" },
+  subhead: { marginTop: 28, fontSize: 22, fontWeight: 700 },
+  body: { marginTop: 8, fontSize: 18, color: "#334155" },
+  credit: { marginTop: 24, fontWeight: 600 },
+  illustrationWrap: { flex: "0 1 480px", minWidth: 260, display: "grid", placeItems: "center" },
+  illustration: { width: "100%", borderRadius: "50%", objectFit: "cover" },
 };
 
+/* ============================================================
+   App Router & Layout
+   ============================================================ */
 function App() {
+  const { isMobile, isTablet } = useBreakpoint();
+
+  // Nav Bar Styles
+  const navStyle = {
+    padding: isMobile ? "8px 10px" : "10px 20px",
+    background: "#333",
+    color: "white",
+    borderRadius: 8,
+    margin: isMobile ? "8px" : "10px",
+  };
+
+  const navListStyle = {
+    listStyle: "none",
+    display: "flex",
+    flexDirection: isMobile ? "column" : "row",
+    gap: isMobile ? "8px" : "20px",
+    margin: 0,
+    padding: 0,
+    alignItems: "center",
+  };
+
+  const navLinkStyle = { color: "white", textDecoration: "none", fontSize: isMobile ? 14 : 16 };
+
   return (
     <BrowserRouter>
       <div className="App">
-        {/* --- NAVIGATION --- */}
-        {/* I've added this simple navigation bar so you can click between pages */}
-        <nav style={{ 
-          padding: '10px 20px', 
-          backgroundColor: '#333', 
-          color: 'white',
-          borderRadius: '8px',
-          margin: '10px'
-        }}>
-          <ul style={{ listStyle: 'none', display: 'flex', gap: '20px', margin: 0, padding: 0 }}>
-            <li>
-              {/* Link component prevents a full page reload */}
-              <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>Home</Link>
-            </li>
-            <li>
-              <Link to="/TrendsD3Page" style={{ color: 'white', textDecoration: 'none' }}>TrendsD3Page</Link>
-            </li>
-            <li>
-              <Link to="/MapsD3Page" style={{ color: 'white', textDecoration: 'none' }}>MapsD3Page</Link>
-            </li>
-            <li>
-              <Link to="/RainfallD3Page" style={{ color: 'white', textDecoration: 'none' }}>RainfallD3Page</Link>
-            </li>
+        {/* Top Navigation */}
+        <nav style={navStyle}>
+          <ul style={navListStyle}>
+            <li><Link to="/" style={navLinkStyle}>Home</Link></li>
+            <li><Link to="/TrendsD3Page" style={navLinkStyle}>TrendsD3Page</Link></li>
+            <li><Link to="/MapsD3Page" style={navLinkStyle}>MapsD3Page</Link></li>
+            <li><Link to="/RainfallD3Page" style={navLinkStyle}>RainfallD3Page</Link></li>
           </ul>
         </nav>
 
-        {/* --- ROUTE DEFINITIONS --- */}
-        {/* This <Routes> block swaps components based on the URL */}
+        {/* Page Routes */}
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<HomePage isMobile={isMobile} isTablet={isTablet} />} />
           <Route path="/TrendsD3Page" element={<TrendsD3Page />} />
           <Route path="/MapsD3Page" element={<MapsD3Page />} />
           <Route path="/RainfallD3Page" element={<RainfallD3Page />} />
         </Routes>
-        
+
+        {/* Bottom Navigation */}
+        <BottomNav />
       </div>
     </BrowserRouter>
   );
