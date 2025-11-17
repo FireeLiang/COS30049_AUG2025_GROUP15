@@ -56,7 +56,7 @@ function BottomNav() {
     background: "#333",
     color: "white",
     textDecoration: "none",
-    borderRadius: 16,
+    borderRadius: 256,
     display: "flex",
     alignItems: "center",
     gap: 8,
