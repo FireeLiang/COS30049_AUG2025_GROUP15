@@ -77,7 +77,7 @@ function addYearTag(baseLabel, year) {
 /* =========================================================================
    COMPONENT
    ========================================================================= */
-export default function TrendsD3Page() {
+function TrendsD3Page() {
   // Controls (chart)
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedYear, setSelectedYear] = useState(2024);
@@ -761,3 +761,5 @@ export default function TrendsD3Page() {
     </Box>
   );
 }
+
+export default TrendsD3Page;
