@@ -179,19 +179,20 @@ function RainfallD3Page() {
   }, [selectedCrop]);
 
 
-  // --- 4. Effect to Render D3 Chart ---
+// --- 4. Effect to Render D3 Chart ---
   useEffect(() => {
-    if (!chartData.length || !barDomain.length || !selectedStations.length || !svgRef.current) {
-      d3.select(svgRef.current).selectAll("*").remove(); // Clear chart
+    // 1. ALWAYS run if we have the SVG ref
+    if (!svgRef.current) {
       return;
     }
 
     const svg = d3.select(svgRef.current);
     const tooltip = d3.select(tooltipRef.current);
-    svg.selectAll("*").remove();
+    svg.selectAll("*").remove(); // Clear chart for every redraw
 
     // --- Chart Dimensions ---
-    const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+    // Using the 110 margin from our previous change
+    const margin = { top: 20, right: 20, bottom: 50, left: 110 }; 
     const width = svg.node().clientWidth - margin.left - margin.right;
     const height = svg.node().clientHeight - margin.top - margin.bottom;
 
@@ -199,41 +200,30 @@ function RainfallD3Page() {
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // --- Determine Y-axis max ---
-    const dataMax = d3.max(chartData, (d) => d.rainfall) || 100;
+    // --- Determine Y-axis max (with defaults) ---
+    // 2. Add a default fallback (|| 100) if chartData is empty
+    const dataMax = d3.max(chartData, (d) => d.rainfall) || 100; 
     const cropMax = cropLimits ? cropLimits.max : 0;
-    const yMax = Math.max(dataMax, cropMax) * 1.1;
+    const yMax = Math.max(dataMax, cropMax) * 1.1; // Will be 110 by default
 
-    // --- D3 Scales ---
+    // --- D3 Scales (Static) ---
+    // These scales don't depend on data, so they can always be created.
     
     // X0 - Groups (Months)
     const x0 = d3
       .scaleBand()
-      .domain(MONTHS.map(m => m.label))
+      .domain(MONTHS.map(m => m.label)) // Uses constant MONTHS
       .range([0, width])
       .padding(0.2);
-
-    // X1 - Sub-groups (Stations)
-    const x1 = d3
-      .scaleBand()
-      .domain(selectedStations.sort((a,b) => a - b)) // Sort station IDs
-      .range([0, x0.bandwidth()])
-      .padding(0.1); // Padding between station groups
-
-    // X2 - Bars within sub-groups (Year-Type)
-    const x2 = d3
-      .scaleBand()
-      .domain(barDomain) // Use state: ["2023-actual", "2024-actual", "2025-forecast"]
-      .range([0, x1.bandwidth()])
-      .padding(0.05); // Padding between individual bars
 
     // Y - Rainfall
     const y = d3
       .scaleLinear()
-      .domain([0, yMax])
+      .domain([0, yMax]) // Uses yMax (which has a default)
       .range([height, 0]);
 
-    // --- Draw Axes ---
+    // --- Draw Axes & Labels (Static) ---
+    // 3. This block is now UNCONDITIONAL. It will always run.
     g.append("g")
       .attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(x0))
@@ -243,12 +233,15 @@ function RainfallD3Page() {
     g.append("g")
       .call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d} mm`))
       .call(g => g.selectAll(".domain").remove())
-      .call(g => g.selectAll("line").attr("stroke", "#e0e0e0").attr("stroke-dasharray", "2,2"))
+      .call(g => g.selectAll("line") // 👈 Modified line
+          .attr("stroke", "#e0e0e0") // Sets the light grey color
+          .attr("x2", width)         // Extends the line to the full width
+      )
       .call(g => g.selectAll("text").style("font-size", "13px"));
       
     g.append("text")
       .attr("transform", "rotate(-90)")
-      .attr("y", 0 - margin.left + 15)
+      .attr("y", 0 - margin.left) // Using the fix from our previous chat
       .attr("x", 0 - (height / 2))
       .attr("dy", "1em")
       .style("text-anchor", "middle")
@@ -257,7 +250,8 @@ function RainfallD3Page() {
       .style("font-weight", "500")
       .text("Monthly Rainfall (mm)");
 
-    // --- Draw Crop Suitability Area ---
+    // --- Draw Crop Suitability Area (Conditional) ---
+    // 4. This remains conditional on cropLimits
     if (cropLimits) {
       const yMin = y(cropLimits.min);
       const yMax = y(cropLimits.max);
@@ -278,59 +272,80 @@ function RainfallD3Page() {
         .attr("stroke", "green").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
     }
 
-    // --- Draw Bars ---
-    
-    // Group data by month
-    const dataByMonth = d3.group(chartData, d => d.month);
-
-    g.append("g")
-      .selectAll("g")
-      .data(dataByMonth)
-      .join("g")
-        // Position the group at the correct month
-        .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`)
+    // --- Draw Bars (Conditional on Data) ---
+    // 5. THIS is the new conditional block.
+    //    We only draw bars if we have all the data needed.
+    if (chartData.length && barDomain.length && selectedStations.length) {
       
-      // Now, create sub-groups for STATIONS
-      .selectAll("g")
-      .data(d => d3.group(d[1], d => d.station)) // d[1] is data for month
-      .join("g")
-        // Position the station group within the month
-        .attr("transform", d => `translate(${x1(d[0])}, 0)`) // d[0] is station ID
+      // 6. Move the data-dependent scales (x1, x2) INSIDE this block.
       
-      // Finally, draw the rects for each YEAR-TYPE
-      .selectAll("rect")
-      .data(d => d[1]) // d[1] is data for that station (in that month)
-      .join("rect")
-        .attr("x", d => x2(d.key)) // d.key is "2023-actual"
-        
-        // --- MODIFICATION FOR 0-VALUE ---
-        .attr("y", d => (d.rainfall === 0 ? y(0) - 1 : y(d.rainfall))) // 1px *above* the base
-        .attr("height", d => (d.rainfall === 0 ? 1 : height - y(d.rainfall))) // 1px tall
-        .attr("opacity", d => (d.rainfall === 0) ? 0.4 : (d.type === 'forecast' ? 0.7 : 1.0))
-        // --- END MODIFICATION ---
+      // X1 - Sub-groups (Stations)
+      const x1 = d3
+        .scaleBand()
+        .domain(selectedStations.sort((a,b) => a - b)) // Sort station IDs
+        .range([0, x0.bandwidth()])
+        .padding(0.1); // Padding between station groups
 
-        .attr("width", x2.bandwidth())
-        .attr("fill", d => color(d.year)) // Color by year
-        
-        // --- Tooltip Events ---
-        .on("mouseover", (event, d) => {
-          tooltip.style("opacity", 1);
-          tooltip.html(`
-            <strong>${d.year} - ${MONTH_MAP.get(d.month)}</strong><br/>
-            <strong>Station: ${d.station}</strong><br/>
-            <span style="text-transform: capitalize;">${d.type}</span>: ${d.rainfall.toFixed(1)} mm
-          `);
-        })
-        .on("mousemove", (event) => {
-          tooltip
-            .style("left", (event.pageX + 15) + "px")
-            .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", () => {
-          tooltip.style("opacity", 0);
-        });
+      // X2 - Bars within sub-groups (Year-Type)
+      const x2 = d3
+        .scaleBand()
+        .domain(barDomain) // Use state: ["2023-actual", "2024-actual", "2025-forecast"]
+        .range([0, x1.bandwidth()])
+        .padding(0.05); // Padding between individual bars
 
-  }, [chartData, cropLimits, barDomain, color, selectedStations]);
+      // --- Draw Bars ---
+      
+      // Group data by month
+      const dataByMonth = d3.group(chartData, d => d.month);
+
+      g.append("g")
+        .selectAll("g")
+        .data(dataByMonth)
+        .join("g")
+          // Position the group at the correct month
+          .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`)
+        
+        // Now, create sub-groups for STATIONS
+        .selectAll("g")
+        .data(d => d3.group(d[1], d => d.station)) // d[1] is data for month
+        .join("g")
+          // Position the station group within the month
+          .attr("transform", d => `translate(${x1(d[0])}, 0)`) // d[0] is station ID
+        
+        // Finally, draw the rects for each YEAR-TYPE
+        .selectAll("rect")
+        .data(d => d[1]) // d[1] is data for that station (in that month)
+        .join("rect")
+          .attr("x", d => x2(d.key)) // d.key is "2023-actual"
+          
+          .attr("y", d => (d.rainfall === 0 ? y(0) - 1 : y(d.rainfall))) 
+          .attr("height", d => (d.rainfall === 0 ? 1 : height - y(d.rainfall))) 
+          .attr("opacity", d => (d.rainfall === 0) ? 0.4 : (d.type === 'forecast' ? 0.7 : 1.0))
+
+          .attr("width", x2.bandwidth())
+          .attr("fill", d => color(d.year)) // Color by year
+          
+          // --- Tooltip Events ---
+          .on("mouseover", (event, d) => {
+            tooltip.style("opacity", 1);
+            tooltip.html(`
+              <strong>${d.year} - ${MONTH_MAP.get(d.month)}</strong><br/>
+              <strong>Station: ${d.station}</strong><br/>
+              <span style="text-transform: capitalize;">${d.type}</span>: ${d.rainfall.toFixed(1)} mm
+            `);
+          })
+          .on("mousemove", (event) => {
+            tooltip
+              .style("left", (event.pageX + 15) + "px")
+              .style("top", (event.pageY - 28) + "px");
+          })
+          .on("mouseout", () => {
+            tooltip.style("opacity", 0);
+          });
+          
+    } // <-- End of the new conditional block
+
+  }, [chartData, cropLimits, barDomain, color, selectedStations]); // Dependencies don't change
 
   // --- Handlers for MUI Selects ---
   const handleYearChange = (event) => {
@@ -356,8 +371,11 @@ function RainfallD3Page() {
   };
 
   // --- Render Component ---
-  return (
-    <Box className="trends-wrap">
+return (
+    <Box 
+      className="trends-wrap" 
+      sx={{ maxWidth: '1800px', margin: '0 auto' }}
+    >
       {/* Header */}
       <Box className="trends-header">
         <Typography variant="h3" component="h1" className="trends-title">
@@ -368,8 +386,18 @@ function RainfallD3Page() {
         </Typography>
       </Box>
 
-      {/* Controls */}
-      <Paper elevation={0} variant="outlined" sx={{ p: 2, mt: 2, borderRadius: "14px" }}>
+{/* Controls */}
+      <Paper 
+        elevation={0} 
+        variant="outlined" 
+        sx={{ 
+          p: 2, 
+          mt: 2, 
+          borderRadius: "14px", 
+          width: "100%", 
+          boxSizing: "border-box" // Ensures padding is inside the 100% width
+        }}
+      >
         <Box className="controls">
           <FormControl sx={{ m: 1, minWidth: 160 }} size="small">
             <InputLabel id="year-multi-label">Years</InputLabel>
@@ -490,7 +518,7 @@ function RainfallD3Page() {
       )}
 
       {/* D3 Chart Area */}
-      <Box className="chart-card" sx={{ mt: 2, height: "500px", width: "100%" }}>
+      <Box className="chart-card" sx={{ mt: 2, height: "500px"}}>
         <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>
       </Box>
 
