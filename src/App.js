@@ -56,7 +56,7 @@ function BottomNav() {
     background: "#333",
     color: "white",
     textDecoration: "none",
-    borderRadius: 8,
+    borderRadius: 16,
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -64,12 +64,12 @@ function BottomNav() {
 
   const barStyle = {
     position: "fixed",
-    bottom: 12,
+    bottom: 20,
     left: 0,
     width: "100%",
     display: "flex",
     justifyContent: "space-between",
-    padding: "0 20px",
+    padding: "0 0px 0 0",
     pointerEvents: "none", // Allows clicks only on children
   };
 
@@ -79,7 +79,7 @@ function BottomNav() {
       <div style={{ pointerEvents: "auto" }}>
         {current.prev && (
           <Link to={current.prev} style={buttonStyle}>
-            ← Prev
+            ← Prev Page
           </Link>
         )}
       </div>
@@ -88,7 +88,7 @@ function BottomNav() {
       <div style={{ pointerEvents: "auto" }}>
         {current.next && (
           <Link to={current.next} style={buttonStyle}>
-            Next →
+            Next Page →
           </Link>
         )}
       </div>
