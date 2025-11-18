@@ -161,7 +161,7 @@
 
 /* Temperature display */
 .temp-display {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #03c113 0%, #04b916 100%);
   border-radius: 8px;
   padding: 1rem;
   text-align: center;
@@ -312,3 +312,168 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* NEW: Date selector row (Year and Month side by side) */
+.date-selector-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.date-selector-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.date-selector-col label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.date-selector-col select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background-color: white;
+    color: #1f2937;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.date-selector-col select:hover {
+    border-color: #9ca3af;
+}
+
+.date-selector-col select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* NEW: Smaller date display box */
+.date-display-small {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 0.625rem 1rem;
+    text-align: center;
+    font-size: 0.938rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Slider labels styling */
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+/* Day Slider Styling */
+.day-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 12px; /* Increased from 8px */
+    border-radius: 6px;
+    background: #e5e7eb; /* Solid light gray background */
+    outline: none;
+    opacity: 1;
+    transition: all 0.2s;
+    border: 1px solid #d1d5db; /* Added border for more definition */
+}
+
+.day-slider:hover {
+    background: #d1d5db; /* Darker on hover */
+}
+
+/* Track fill effect */
+.day-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+}
+
+.day-slider::-moz-range-track {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    background: #e5e7eb;
+}
+
+/* Thumb styling */
+.day-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px; /* Increased from 20px */
+    height: 24px;
+    border-radius: 50%;
+    background: #029d12;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.4); /* More prominent shadow */
+    transition: all 0.2s;
+    border: 3px solid white; /* White border for contrast */
+    margin-top: -6px; /* Center vertically */
+}
+
+.day-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    background: #04803e;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.5);
+}
+
+.day-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 3px solid white;
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.4);
+    transition: all 0.2s;
+}
+
+.day-slider::-moz-range-thumb:hover {
+    transform: scale(1.15);
+    background: #04803e;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.5);
+}
+
+/* Slider labels */
+.slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+/* Temperature text on map */
+.temp-on-map {
+    text-shadow: 
+        -2px -2px 3px #fff,
+        2px -2px 3px #fff,
+        -2px 2px 3px #fff,
+        2px 2px 3px #fff,
+        0 0 8px rgba(255,255,255,0.8);
+}
+
+/* State labels on map */
+.state-label {
+    text-shadow: 
+        -1px -1px 2px #fff,
+        1px -1px 2px #fff,
+        -1px 1px 2px #fff,
+        1px 1px 2px #fff;
+}
+

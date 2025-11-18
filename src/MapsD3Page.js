@@ -17,6 +17,17 @@ const STATE_ABBR_MAP = {
     'Tasmania': 'TAS'
 };
 
+// Full state names for display
+const STATE_FULL_NAMES = {
+    'WA': 'Western Australia',
+    'NT': 'Northern Territory',
+    'SA': 'South Australia',
+    'QLD': 'Queensland',
+    'NSW': 'New South Wales',
+    'VIC': 'Victoria',
+    'TAS': 'Tasmania'
+};
+
 // Colors for each state (matching your prototype)
 const STATE_COLORS = {
     'WA': '#4ade80',
@@ -33,8 +44,12 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => ({
     value: i + 1,
     label: new Date(0, i).toLocaleString('en-US', { month: 'long' })
 }));
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const YEARS = [2023, 2024, 2025];
+
+// Helper to get days in month
+const getDaysInMonth = (year, month) => {
+    return new Date(year, month, 0).getDate();
+};
 
 // --- API Helper ---
 async function fetchJson(url, options = {}) {
@@ -61,46 +76,108 @@ function MapsD3Page() {
     const [selectedDate, setSelectedDate] = useState({
         year: YEARS[0],
         month: MONTHS[0].value,
-        day: DAYS[0]
+        day: 1
     });
     const [selectedState, setSelectedState] = useState(null);
+    const [stateTemperatures, setStateTemperatures] = useState({}); // Store temps for clicked states
     const [avgTemperature, setAvgTemperature] = useState(null);
     const [stationInfo, setStationInfo] = useState({ id: null, name: null });
     const [suitableCrops, setSuitableCrops] = useState([]);
     const [loading, setLoading] = useState(false);
     const [apiError, setApiError] = useState(null);
 
-    // --- 1. Fetch GeoJSON Data ---
+    // Calculate max days for current month/year
+    const maxDaysInMonth = useMemo(() => {
+        return getDaysInMonth(selectedDate.year, selectedDate.month);
+    }, [selectedDate.year, selectedDate.month]);
+
+    // Adjust day if it exceeds max days in new month
     useEffect(() => {
-        fetch(GEOJSON_URL)
-            .then(res => {
-                if (!res.ok) throw new Error('Failed to load GeoJSON');
-                return res.json();
-            })
-            .then(data => {
-                // Add abbreviations to features
-                data.features = data.features.map(feature => ({
+        if (selectedDate.day > maxDaysInMonth) {
+            setSelectedDate(prev => ({ ...prev, day: maxDaysInMonth }));
+        }
+    }, [maxDaysInMonth, selectedDate.day]);
+
+    // --- 1. Fetch GeoJSON Data ---
+    // useEffect(() => {
+    //     fetch(GEOJSON_URL)
+    //         .then(res => {
+    //             if (!res.ok) throw new Error('Failed to load GeoJSON');
+    //             return res.json();
+    //         })
+    //         .then(data => {
+    //             // Filter out ACT and add abbreviations to features
+    //             data.features = data.features
+    //                 .filter(feature => {
+    //                     const stateName = feature.properties.STATE_NAME;
+    //                     // Exclude Australian Capital Territory
+    //                     return stateName !== 'Australian Capital Territory';
+    //                 })
+    //                 .map(feature => ({
+    //                     ...feature,
+    //                     properties: {
+    //                         ...feature.properties,
+    //                         abbr: STATE_ABBR_MAP[feature.properties.STATE_NAME] || feature.properties.STATE_NAME
+    //                     }
+    //                 }));
+    //             setGeoData(data);
+    //         })
+    //         .catch(err => {
+    //             console.error("Failed to load GeoJSON:", err);
+    //             setApiError("Failed to load map data. Please refresh the page.");
+    //         });
+    // }, []);
+
+    // --- 1. Fetch GeoJSON Data ---
+useEffect(() => {
+    fetch(GEOJSON_URL)
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to load GeoJSON');
+            return res.json();
+        })
+        .then(data => {
+            
+            // Filter out ACT and add abbreviations to features
+            const allowedStates = [
+                'Western Australia',
+                'Northern Territory', 
+                'South Australia',
+                'Queensland',
+                'New South Wales',
+                'Victoria',
+                'Tasmania'
+            ];
+            
+            data.features = data.features
+                .filter(feature => {
+                    const stateName = feature.properties.STATE_NAME;
+                    const isAllowed = allowedStates.includes(stateName);
+                    
+                    return isAllowed;
+                })
+                .map(feature => ({
                     ...feature,
                     properties: {
                         ...feature.properties,
                         abbr: STATE_ABBR_MAP[feature.properties.STATE_NAME] || feature.properties.STATE_NAME
                     }
                 }));
-                setGeoData(data);
-            })
-            .catch(err => {
-                console.error("Failed to load GeoJSON:", err);
-                setApiError("Failed to load map data. Please refresh the page.");
-            });
-    }, []);
+            
+            setGeoData(data);
+        })
+        .catch(err => {
+            console.error("Failed to load GeoJSON:", err);
+            setApiError("Failed to load map data. Please refresh the page.");
+        });
+}, []);
 
-    // --- 2. D3 Map Drawing Effect ---
+    // --- 2. D3 Map Drawing Effect (Now shows temperature ON the map) ---
     useEffect(() => {
         if (!geoData || !containerRef.current) return;
 
         const container = containerRef.current;
         const width = container.clientWidth || 600;
-        const height = 400;
+        const height = 600;
 
         const svg = d3.select(svgRef.current)
             .attr("width", width)
@@ -114,14 +191,14 @@ function MapsD3Page() {
 
         // Create projection for Australia
         const projection = d3.geoMercator()
-            .center([133, -28]) // Center of Australia
-            .scale(width * 0.8)
+            .center([133, -28])
+            .scale(width * 1.37)
             .translate([width / 2, height / 2]);
 
         const path = d3.geoPath().projection(projection);
 
         // Draw States
-        g.selectAll("path")
+        const statePaths = g.selectAll("path")
             .data(geoData.features)
             .enter().append("path")
             .attr("d", path)
@@ -138,7 +215,6 @@ function MapsD3Page() {
             })
             .on("click", (event, d) => {
                 const abbr = d.properties.abbr;
-                // Only allow clicks on the 7 states (excluding ACT if present)
                 const validStates = ['WA', 'NT', 'SA', 'QLD', 'NSW', 'VIC', 'TAS'];
                 if (validStates.includes(abbr)) {
                     setSelectedState(abbr);
@@ -148,7 +224,7 @@ function MapsD3Page() {
             .append("title")
             .text(d => `${d.properties.STATE_NAME || d.properties.abbr} - Click to select`);
 
-        // Add State Labels
+        // Add State Labels (abbreviations only)
         g.selectAll(".state-label")
             .data(geoData.features)
             .enter().append("text")
@@ -159,14 +235,36 @@ function MapsD3Page() {
                 const abbr = d.properties.abbr;
                 return selectedState === abbr ? '#000' : '#1f2937';
             })
-            .attr("font-size", "12px")
-            .attr("font-weight", "600")
+            .attr("font-size", "15px")
+            .attr("font-weight", "750")
             .attr("pointer-events", "none")
             .text(d => d.properties.abbr);
 
-    }, [geoData, selectedState]);
+        // --- NEW: Display Temperature ON Map for Selected State ---
+        if (selectedState && avgTemperature !== null) {
+            const selectedFeature = geoData.features.find(
+                f => f.properties.abbr === selectedState
+            );
+            
+            if (selectedFeature) {
+                const centroid = path.centroid(selectedFeature);
+                
+                // Add temperature text below state label
+                g.append("text")
+                    .attr("class", "temp-on-map")
+                    .attr("transform", `translate(${centroid[0]}, ${centroid[1] + 20})`)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", "16px")
+                    .attr("font-weight", "700")
+                    .attr("fill", "#1f2937")
+                    .attr("pointer-events", "none")
+                    .text(`${avgTemperature.toFixed(1)}°C`);
+            }
+        }
 
-    // --- 3. Data Fetching Effect (Temperature & Crop Suitability) ---
+    }, [geoData, selectedState, avgTemperature]);
+
+    // --- 3. Data Fetching Effect ---
     useEffect(() => {
         if (!selectedState) {
             setAvgTemperature(null);
@@ -196,14 +294,12 @@ function MapsD3Page() {
                 throw new Error("No data returned for selected parameters.");
             }
             
-            // Extract temperature and station info from first result
             const temp = results[0].avg_temp;
             const station = {
                 id: results[0].station_id,
                 name: results[0].station_name || 'Unknown Station'
             };
             
-            // Filter suitable crops
             const suitable = results
                 .filter(r => r.is_suitable)
                 .map(r => ({
@@ -216,6 +312,12 @@ function MapsD3Page() {
             setAvgTemperature(temp);
             setSuitableCrops(suitable);
             setStationInfo(station);
+            
+            // Store temperature for this state
+            setStateTemperatures(prev => ({
+                ...prev,
+                [selectedState]: temp
+            }));
         })
         .catch(error => {
             console.error('API Error:', error);
@@ -238,6 +340,13 @@ function MapsD3Page() {
         }));
     };
 
+    const handleDaySliderChange = (e) => {
+        setSelectedDate(prev => ({
+            ...prev,
+            day: parseInt(e.target.value, 10)
+        }));
+    };
+
     // Format date string for display
     const dateString = useMemo(() => {
         const { year, month, day } = selectedDate;
@@ -253,14 +362,14 @@ function MapsD3Page() {
             {/* Header */}
             <div className="maps-header">
                 <h1>Planting Suitability Across Australian States ({selectedDate.year})</h1>
-                <p>Select a date and click on a state to view temperature and suitable crops</p>
+                <p>Select a date and click on a state to view temperature and suitable crops plantation.</p>
             </div>
 
             {/* Main Grid */}
             <div className="maps-grid">
                 {/* Map Section */}
                 <div className="map-section">
-                    <h2>Australian States Map</h2>
+                    <h2>Australian States</h2>
                     <div className="map-container" ref={containerRef}>
                         <svg ref={svgRef}></svg>
                     </div>
@@ -268,9 +377,10 @@ function MapsD3Page() {
 
                 {/* Controls Section */}
                 <div className="controls-section">
-                    <div className="control-group">
-                        <label>Select Date</label>
-                        <div className="control-row">
+                    {/* Year and Month - Side by Side */}
+                    <div className="date-selector-row">
+                        <div className="date-selector-col">
+                            <label>Year</label>
                             <select
                                 value={selectedDate.year}
                                 onChange={(e) => handleDateChange('year', e.target.value)}
@@ -279,6 +389,9 @@ function MapsD3Page() {
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
+                        </div>
+                        <div className="date-selector-col">
+                            <label>Month</label>
                             <select
                                 value={selectedDate.month}
                                 onChange={(e) => handleDateChange('month', e.target.value)}
@@ -287,26 +400,44 @@ function MapsD3Page() {
                                     <option key={m.value} value={m.value}>{m.label}</option>
                                 ))}
                             </select>
-                            <select
-                                value={selectedDate.day}
-                                onChange={(e) => handleDateChange('day', e.target.value)}
-                            >
-                                {DAYS.map(d => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
-                            </select>
                         </div>
                     </div>
 
-                    {/* Selected State Info */}
+                    {/* Day Slider */}
+                    <div className="control-group">
+                        <label>
+                            Day: <strong>{selectedDate.day}</strong>
+                        </label>
+                        <input
+                            type="range"
+                            min="1"
+                            max={maxDaysInMonth}
+                            value={selectedDate.day}
+                            onChange={handleDaySliderChange}
+                            className="day-slider"
+                        />
+                        <div className="slider-labels">
+                            <span>1</span>
+                            <span>{maxDaysInMonth}</span>
+                        </div>
+                    </div>
+
+                    {/* Selected Date Display - Smaller */}
+                    <div className="control-group">
+                        <label>Selected Date</label>
+                        <div className="date-display-small">
+                            {dateString}
+                        </div>
+                    </div>
+
+                    {/* Selected State Info - Show Full Name */}
                     <div className="control-group">
                         <label>Selected State</label>
                         {selectedState ? (
                             <div className="temp-display">
-                                <div className="label">State</div>
-                                <div className="value">{selectedState}</div>
-                                <div className="label" style={{ marginTop: '1rem' }}>Date</div>
-                                <div style={{ fontSize: '1rem' }}>{dateString}</div>
+                                <div className="value" style={{ fontSize: '1.25rem' }}>
+                                    {STATE_FULL_NAMES[selectedState]} ({selectedState})
+                                </div>
                             </div>
                         ) : (
                             <div className="no-selection">Click on a state to begin</div>
@@ -340,7 +471,7 @@ function MapsD3Page() {
             {selectedState && (
                 <div className="recommendations-section">
                     <div className="recommendations-header">
-                        <h2>AI Recommendation</h2>
+                        <h2>Crops Recommendation</h2>
                         <span className="crop-count">
                             {suitableCount} Suitable Crop{suitableCount !== 1 ? 's' : ''}
                         </span>
