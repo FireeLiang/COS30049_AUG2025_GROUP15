@@ -12,11 +12,11 @@ import {
   Chip,
   OutlinedInput,
   Paper,
-  ClickAwayListener, 
+  Button,
 } from "@mui/material";
 
 // Import CSS
-import "./TrendsD3Page.css"; // Re-using the same CSS file for consistent styling
+import "./TrendsD3Page.css"; 
 
 /* =========================================================================
    CONFIG
@@ -54,6 +54,7 @@ function RainfallD3Page() {
   // --- Refs ---
   const svgRef = useRef(null);
   const tooltipRef = useRef(null);
+  const zoomBehaviorRef = useRef(null);
 
   // --- State for Dropdowns ---
   const [allStations, setAllStations] = useState([]);
@@ -65,10 +66,10 @@ function RainfallD3Page() {
   const [selectedCrop, setSelectedCrop] = useState("");
 
   // --- State for Data ---
-  const [chartData, setChartData] = useState([]); // Processed data for D3
-  const [cropLimits, setCropLimits] = useState(null); // { min, max }
+  const [chartData, setChartData] = useState([]); 
+  const [cropLimits, setCropLimits] = useState(null); 
   const [error, setError] = useState(null);
-  const [barDomain, setBarDomain] = useState([]); // Domain for the bars
+  const [barDomain, setBarDomain] = useState([]); 
 
   // ======================================================================
   // --- COLOR SCALE ---
@@ -76,7 +77,7 @@ function RainfallD3Page() {
   const color = useMemo(() => 
     d3.scaleOrdinal()
       .domain(YEAR_OPTIONS.sort())
-      .range(["#1b9e77", "#d95f02", "#7570b3"]), // Colors for 2025, 2024, 2023
+      .range(["#1b9e77", "#d95f02", "#7570b3"]), 
     []
   );
 
@@ -107,8 +108,6 @@ function RainfallD3Page() {
     const stationString = selectedStations.join(",");
     const promises = [];
 
-    // --- Build fetch promises for selected years ---
-    
     if (selectedYears.includes(2025)) {
       promises.push(
         getJSON(`${API_BASE}/model/rainfall-forecast?year=2025&stations=${stationString}`)
@@ -143,16 +142,12 @@ function RainfallD3Page() {
       );
     }
 
-    // --- Fetch all, process, and set state ---
     Promise.all(promises)
       .then((results) => {
         const flatData = results.flat();
         setChartData(flatData);
-
-        // Build the domain for the inner-most bars (year-type)
         const newDomain = new Set(flatData.map(d => d.key));
-        setBarDomain(Array.from(newDomain).sort()); // 2023 -> 2024 -> 2025
-        
+        setBarDomain(Array.from(newDomain).sort()); 
         setError(null);
       })
       .catch((err) => {
@@ -179,69 +174,80 @@ function RainfallD3Page() {
   }, [selectedCrop]);
 
 
-// --- 4. Effect to Render D3 Chart ---
+  // --- 4. Effect to Render D3 Chart (With ZOOM & TOOLTIP & EXTERNAL LABELS) ---
   useEffect(() => {
-    // 1. ALWAYS run if we have the SVG ref
-    if (!svgRef.current) {
-      return;
-    }
+    if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
     const tooltip = d3.select(tooltipRef.current);
     svg.selectAll("*").remove(); // Clear chart for every redraw
 
     // --- Chart Dimensions ---
-    // Using the 110 margin from our previous change
-    const margin = { top: 20, right: 20, bottom: 50, left: 110 }; 
+    // INCREASE BOTTOM MARGIN TO 80 to fit the labels below the axis
+    const margin = { top: 20, right: 20, bottom: 80, left: 110 }; 
     const width = svg.node().clientWidth - margin.left - margin.right;
     const height = svg.node().clientHeight - margin.top - margin.bottom;
 
+    // --- Define Clip Path ---
+    svg.append("defs")
+      .append("clipPath")
+      .attr("id", "chart-clip")
+      .append("rect")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("x", 0)
+      .attr("y", 0);
+
+    // --- Create Main Group ---
     const g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // --- Determine Y-axis max (with defaults) ---
-    // 2. Add a default fallback (|| 100) if chartData is empty
+    // --- Scales & Axes Init ---
     const dataMax = d3.max(chartData, (d) => d.rainfall) || 100; 
     const cropMax = cropLimits ? cropLimits.max : 0;
-    const yMax = Math.max(dataMax, cropMax) * 1.1; // Will be 110 by default
+    const yMax = Math.max(dataMax, cropMax) * 1.1;
 
-    // --- D3 Scales (Static) ---
-    // These scales don't depend on data, so they can always be created.
-    
     // X0 - Groups (Months)
-    const x0 = d3
-      .scaleBand()
-      .domain(MONTHS.map(m => m.label)) // Uses constant MONTHS
+    const x0 = d3.scaleBand()
+      .domain(MONTHS.map(m => m.label))
       .range([0, width])
       .padding(0.2);
 
     // Y - Rainfall
-    const y = d3
-      .scaleLinear()
-      .domain([0, yMax]) // Uses yMax (which has a default)
+    const y = d3.scaleLinear()
+      .domain([0, yMax])
       .range([height, 0]);
 
-    // --- Draw Axes & Labels (Static) ---
-    // 3. This block is now UNCONDITIONAL. It will always run.
-    g.append("g")
+    // --- Draw Axes ---
+    const xAxisGroup = g.append("g")
+      .attr("class", "x-axis")
       .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x0))
-      .call(g => g.selectAll(".domain").remove())
-      .call(g => g.selectAll("text").style("font-size", "13px"));
+      .call(d3.axisBottom(x0));
       
-    g.append("g")
-      .call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d} mm`))
+    const yAxisGroup = g.append("g")
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(y).ticks(5).tickFormat(d => `${d} mm`));
+
+    // Style Axes
+    // Push month labels down (dy) so they don't overlap with our new station labels
+    xAxisGroup.selectAll("text")
+      .style("font-size", "13px")
+      .attr("dy", "4em"); 
+
+    yAxisGroup.selectAll("text").style("font-size", "13px");
+    
+    // Gridlines (Initial)
+    const gridGroup = g.append("g").attr("class", "grid-lines");
+    gridGroup
+      .call(d3.axisLeft(y).ticks(5).tickSize(-width).tickFormat(""))
       .call(g => g.selectAll(".domain").remove())
-      .call(g => g.selectAll("line") // 👈 Modified line
-          .attr("stroke", "#e0e0e0") // Sets the light grey color
-          .attr("x2", width)         // Extends the line to the full width
-      )
-      .call(g => g.selectAll("text").style("font-size", "13px"));
-      
+      .call(g => g.selectAll("line").attr("stroke", "#e0e0e0").attr("stroke-dasharray", "2,2"));
+
+    // Y-Axis Label
     g.append("text")
       .attr("transform", "rotate(-90)")
-      .attr("y", 0 - margin.left) // Using the fix from our previous chat
+      .attr("y", 0 - margin.left)
       .attr("x", 0 - (height / 2))
       .attr("dy", "1em")
       .style("text-anchor", "middle")
@@ -250,88 +256,93 @@ function RainfallD3Page() {
       .style("font-weight", "500")
       .text("Monthly Rainfall (mm)");
 
-    // --- Draw Crop Suitability Area (Conditional) ---
-    // 4. This remains conditional on cropLimits
+    // --- Content Group (Clipped) ---
+    // Bars go here so they don't spill out of chart area
+    const contentG = g.append("g").attr("clip-path", "url(#chart-clip)");
+
+    // --- Labels Group (Not Clipped) ---
+    // Station labels go here so they can be drawn BELOW the x-axis
+    const labelsG = g.append("g").attr("class", "labels-container");
+
+    // --- Crop Suitability Area Elements ---
+    let cropRect, cropLineMax, cropLineMin;
     if (cropLimits) {
       const yMin = y(cropLimits.min);
       const yMax = y(cropLimits.max);
 
-      g.append("rect")
+      cropRect = contentG.append("rect")
+        .attr("class", "crop-rect")
         .attr("x", 0).attr("y", yMax)
         .attr("width", width).attr("height", yMin - yMax)
         .attr("fill", "green").attr("opacity", 0.1);
 
-      g.append("line")
+      cropLineMax = contentG.append("line")
+        .attr("class", "crop-line-max")
         .attr("x1", 0).attr("y1", yMax)
         .attr("x2", width).attr("y2", yMax)
         .attr("stroke", "green").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
         
-      g.append("line")
+      cropLineMin = contentG.append("line")
+        .attr("class", "crop-line-min")
         .attr("x1", 0).attr("y1", yMin)
         .attr("x2", width).attr("y2", yMin)
         .attr("stroke", "green").attr("stroke-width", 1).attr("stroke-dasharray", "4,4");
     }
 
-    // --- Draw Bars (Conditional on Data) ---
-    // 5. THIS is the new conditional block.
-    //    We only draw bars if we have all the data needed.
+    // --- Bar Logic Variables ---
+    let x1, x2, monthGroups;
+
+    // --- Draw Bars (Initial) ---
     if (chartData.length && barDomain.length && selectedStations.length) {
-      
-      // 6. Move the data-dependent scales (x1, x2) INSIDE this block.
-      
       // X1 - Sub-groups (Stations)
-      const x1 = d3
-        .scaleBand()
-        .domain(selectedStations.sort((a,b) => a - b)) // Sort station IDs
+      x1 = d3.scaleBand()
+        .domain(selectedStations.sort((a,b) => a - b)) 
         .range([0, x0.bandwidth()])
-        .padding(0.1); // Padding between station groups
+        .padding(0.1);
 
       // X2 - Bars within sub-groups (Year-Type)
-      const x2 = d3
-        .scaleBand()
-        .domain(barDomain) // Use state: ["2023-actual", "2024-actual", "2025-forecast"]
+      x2 = d3.scaleBand()
+        .domain(barDomain) 
         .range([0, x1.bandwidth()])
-        .padding(0.05); // Padding between individual bars
+        .padding(0.05);
 
-      // --- Draw Bars ---
-      
       // Group data by month
       const dataByMonth = d3.group(chartData, d => d.month);
 
-      g.append("g")
-        .selectAll("g")
+      // Create Month Groups (For Bars)
+      monthGroups = contentG.append("g")
+        .attr("class", "bars-container")
+        .selectAll("g.month-group")
         .data(dataByMonth)
         .join("g")
-          // Position the group at the correct month
-          .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`)
-        
-        // Now, create sub-groups for STATIONS
-        .selectAll("g")
-        .data(d => d3.group(d[1], d => d.station)) // d[1] is data for month
+          .attr("class", "month-group")
+          .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`);
+      
+      // Create Station Groups (For Bars)
+      const stationGroups = monthGroups
+        .selectAll("g.station-group")
+        .data(d => d3.group(d[1], d => d.station))
         .join("g")
-          // Position the station group within the month
-          .attr("transform", d => `translate(${x1(d[0])}, 0)`) // d[0] is station ID
-        
-        // Finally, draw the rects for each YEAR-TYPE
-        .selectAll("rect")
-        .data(d => d[1]) // d[1] is data for that station (in that month)
+          .attr("class", "station-group")
+          .attr("transform", d => `translate(${x1(d[0])}, 0)`);
+
+      // Draw Rects
+      stationGroups.selectAll("rect")
+        .data(d => d[1])
         .join("rect")
-          .attr("x", d => x2(d.key)) // d.key is "2023-actual"
-          
+          .attr("class", "bar-rect")
+          .attr("x", d => x2(d.key)) 
           .attr("y", d => (d.rainfall === 0 ? y(0) - 1 : y(d.rainfall))) 
           .attr("height", d => (d.rainfall === 0 ? 1 : height - y(d.rainfall))) 
           .attr("opacity", d => (d.rainfall === 0) ? 0.4 : (d.type === 'forecast' ? 0.7 : 1.0))
-
           .attr("width", x2.bandwidth())
-          .attr("fill", d => color(d.year)) // Color by year
-          
-          // --- Tooltip Events ---
+          .attr("fill", d => color(d.year))
           .on("mouseover", (event, d) => {
             tooltip.style("opacity", 1);
             tooltip.html(`
               <strong>${d.year} - ${MONTH_MAP.get(d.month)}</strong><br/>
-              <strong>Station: ${d.station}</strong><br/>
-              <span style="text-transform: capitalize;">${d.type}</span>: ${d.rainfall.toFixed(1)} mm
+              Station ID: ${d.station}<br/>
+              Rainfall: ${d.rainfall.toFixed(1)} mm
             `);
           })
           .on("mousemove", (event) => {
@@ -342,41 +353,154 @@ function RainfallD3Page() {
           .on("mouseout", () => {
             tooltip.style("opacity", 0);
           });
+
+      // ★★★ DRAW STATION LABELS (Separate Group, Unclipped, Below Axis) ★★★
+      if (selectedStations.length > 1) {
+         // We mirror the structure (Month -> Station) in the labelsG
+         const labelMonths = labelsG.selectAll(".l-month-group")
+            .data(dataByMonth)
+            .join("g")
+            .attr("class", "l-month-group")
+            .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`);
+
+         const labelStations = labelMonths.selectAll(".l-station-group")
+            .data(d => d3.group(d[1], d => d.station))
+            .join("g")
+            .attr("class", "l-station-group")
+            .attr("transform", d => `translate(${x1(d[0])}, 0)`);
+         
+         labelStations.append("text")
+            .attr("class", "station-label")
+            .text(d => d[0]) // Station ID
+            .attr("x", x1.bandwidth() / 2)
+            .attr("y", height + 10) // Start slightly below the axis line
+            .attr("text-anchor", "end") // Anchor end so rotation makes it read bottom-to-top ending at axis
+            .attr("font-size", "10px")
+            .attr("fill", "#333")
+            .style("pointer-events", "none")
+            .attr("transform", d => `rotate(-90, ${x1.bandwidth() / 2}, ${height + 10})`);
+      }
+    }
+
+    // ======================================================================
+    // --- ZOOM HANDLER ---
+    // ======================================================================
+    const zoom = d3.zoom()
+      .scaleExtent([1, 5])
+      .extent([[0, 0], [width, height]])
+      .translateExtent([[0, 0], [width, height]])
+      .on("zoom", (event) => {
+        const t = event.transform;
+
+        // 1. Rescale Y-Axis (Linear)
+        const newY = t.rescaleY(y);
+        yAxisGroup.call(d3.axisLeft(newY).ticks(5).tickFormat(d => `${d} mm`));
+        yAxisGroup.selectAll("text").style("font-size", "13px");
+
+        gridGroup.call(d3.axisLeft(newY).ticks(5).tickSize(-width).tickFormat(""));
+        gridGroup.selectAll("line").attr("stroke", "#e0e0e0").attr("stroke-dasharray", "2,2");
+        gridGroup.selectAll(".domain").remove();
+
+        // 2. Rescale X-Axis (Band) - Manual Range Adjustment
+        x0.range([0, width].map(d => t.applyX(d)));
+        xAxisGroup.call(d3.axisBottom(x0));
+        // Keep month labels pushed down
+        xAxisGroup.selectAll("text").attr("dy", "4em"); 
+
+        // 3. Update Crop Lines/Rects
+        if (cropLimits) {
+          const newYMin = newY(cropLimits.min);
+          const newYMax = newY(cropLimits.max);
           
-    } // <-- End of the new conditional block
+          cropRect.attr("y", newYMax).attr("height", Math.max(0, newYMin - newYMax));
+          cropLineMax.attr("y1", newYMax).attr("y2", newYMax);
+          cropLineMin.attr("y1", newYMin).attr("y2", newYMin);
+        }
 
-  }, [chartData, cropLimits, barDomain, color, selectedStations]); // Dependencies don't change
+        // 4. Update Bars & Labels
+        if (chartData.length && barDomain.length && selectedStations.length) {
+            // Update scales
+            x1.range([0, x0.bandwidth()]);
+            x2.range([0, x1.bandwidth()]);
 
-  // --- Handlers for MUI Selects ---
+            // Move Bar Groups (Clipped)
+            contentG.selectAll(".month-group")
+                .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`);
+            contentG.selectAll(".station-group")
+                .attr("transform", d => `translate(${x1(d[0])}, 0)`);
+
+            // Move Label Groups (Unclipped)
+            labelsG.selectAll(".l-month-group")
+                .attr("transform", d => `translate(${x0(MONTH_MAP.get(d[0]))}, 0)`);
+            labelsG.selectAll(".l-station-group")
+                .attr("transform", d => `translate(${x1(d[0])}, 0)`);
+
+            // Resize Bars
+            contentG.selectAll(".bar-rect")
+                .attr("x", d => x2(d.key))
+                .attr("width", x2.bandwidth())
+                .attr("y", d => (d.rainfall === 0 ? newY(0) - 1 : newY(d.rainfall)))
+                .attr("height", d => {
+                    const val = d.rainfall === 0 ? 1 : height - newY(d.rainfall);
+                    return Math.max(0, val);
+                });
+            
+            // Update Station Labels Position
+             if (selectedStations.length > 1) {
+               labelsG.selectAll(".station-label")
+                 .attr("x", x1.bandwidth() / 2)
+                 .attr("transform", `rotate(-90, ${x1.bandwidth() / 2}, ${height + 10})`);
+             }
+        }
+      });
+
+    zoomBehaviorRef.current = zoom;
+
+    // --- ZOOM OVERLAY ---
+    const zoomRect = g.append("rect")
+        .attr("width", width)
+        .attr("height", height)
+        .style("fill", "none")
+        .style("pointer-events", "all")
+        .call(zoom);
+
+    // Send zoom overlay to back
+    zoomRect.lower();
+
+    svg.call(zoom);
+    svg.on("dblclick.zoom", null);
+
+  }, [chartData, cropLimits, barDomain, color, selectedStations]); 
+
+  // --- Handlers ---
   const handleYearChange = (event) => {
-    const {
-      target: { value },
-    } = event;
-    setSelectedYears(
-      typeof value === "string" ? value.split(",") : value
-    );
+    const { target: { value } } = event;
+    setSelectedYears(typeof value === "string" ? value.split(",") : value);
   };
 
   const handleStationChange = (event) => {
-    const {
-      target: { value },
-    } = event;
-    setSelectedStations(
-      typeof value === "string" ? value.split(",") : value
-    );
+    const { target: { value } } = event;
+    setSelectedStations(typeof value === "string" ? value.split(",") : value);
   };
 
   const handleCropChange = (event) => {
     setSelectedCrop(event.target.value);
   };
 
-  // --- Render Component ---
-return (
+  const handleResetZoom = () => {
+    if (!svgRef.current || !zoomBehaviorRef.current) return;
+    d3.select(svgRef.current)
+      .transition()
+      .duration(750)
+      .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+  };
+
+  // --- Render ---
+  return (
     <Box 
       className="trends-wrap" 
       sx={{ maxWidth: '1800px', margin: '0 auto' }}
     >
-      {/* Header */}
       <Box className="trends-header">
         <Typography variant="h3" component="h1" className="trends-title">
           Rainfall Suitability
@@ -386,16 +510,11 @@ return (
         </Typography>
       </Box>
 
-{/* Controls */}
       <Paper 
         elevation={0} 
         variant="outlined" 
         sx={{ 
-          p: 2, 
-          mt: 2, 
-          borderRadius: "14px", 
-          width: "100%", 
-          boxSizing: "border-box" // Ensures padding is inside the 100% width
+          p: 2, mt: 2, borderRadius: "14px", width: "100%", boxSizing: "border-box"
         }}
       >
         <Box className="controls">
@@ -417,9 +536,7 @@ return (
               )}
             >
               {YEAR_OPTIONS.map((year) => (
-                <MenuItem key={year} value={year}>
-                  {year}
-                </MenuItem>
+                <MenuItem key={year} value={year}>{year}</MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -443,9 +560,7 @@ return (
               )}
             >
               {allStations.map((stationId) => (
-                <MenuItem key={stationId} value={stationId}>
-                  {stationId}
-                </MenuItem>
+                <MenuItem key={stationId} value={stationId}>{stationId}</MenuItem>
               ))}
             </Select>
           </FormControl>
@@ -459,37 +574,22 @@ return (
               label="Crop"
               onChange={handleCropChange}
             >
-              <MenuItem value="">
-                <em>None</em>
-              </MenuItem>
+              <MenuItem value=""><em>None</em></MenuItem>
               {allCrops.map((cropName) => (
-                <MenuItem key={cropName} value={cropName}>
-                  {cropName}
-                </MenuItem>
+                <MenuItem key={cropName} value={cropName}>{cropName}</MenuItem>
               ))}
             </Select>
           </FormControl>
         </Box>
       </Paper>
 
-      {/* Legend */}
       <Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}>
-        {/* Year Colors */}
         {selectedYears.sort().map((year) => (
           <Box key={year} sx={{ display: "inline-flex", alignItems: "center" }}>
-            <Box
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "2px",
-                bgcolor: color(year),
-                mr: 1,
-              }}
-            />
+            <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: color(year), mr: 1 }}/>
             <Typography variant="body2">{year}</Typography>
           </Box>
         ))}
-        {/* Bar Type Legend */}
         <Box sx={{ display: "inline-flex", alignItems: "center", ml: 2 }}>
             <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: "grey.500", mr: 1, opacity: 1.0 }} />
             <Typography variant="body2">Actual</Typography>
@@ -510,19 +610,35 @@ return (
         )}
       </Box>
       
-      {/* Error Message */}
       {error && (
         <Typography color="error" sx={{ mt: 2 }}>
           <strong>Error:</strong> {error}
         </Typography>
       )}
 
-      {/* D3 Chart Area */}
-      <Box className="chart-card" sx={{ mt: 2, height: "500px"}}>
-        <svg ref={svgRef} style={{ width: "100%", height: "100%" }}></svg>
+      <Box className="chart-card" sx={{ mt: 2, height: "500px", position: "relative" }}>
+        
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={handleResetZoom}
+          sx={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            zIndex: 10,
+            backgroundColor: "rgba(255,255,255,0.8)",
+            "&:hover": {
+              backgroundColor: "rgba(255,255,255,1)",
+            }
+          }}
+        >
+          Reset Zoom
+        </Button>
+
+        <svg ref={svgRef} style={{ width: "100%", height: "100%", overflow: 'hidden' }}></svg>
       </Box>
 
-      {/* Tooltip */}
       <div
         ref={tooltipRef}
         className="d3-tooltip"
@@ -536,6 +652,8 @@ return (
           borderRadius: "6px",
           fontSize: "13px",
           lineHeight: 1.5,
+          zIndex: 10, 
+          textAlign: "left",
         }}
       ></div>
     </Box>

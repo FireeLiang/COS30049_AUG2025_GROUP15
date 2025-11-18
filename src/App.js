@@ -11,6 +11,19 @@ import RainfallD3Page from './RainfallD3Page';
 import farmerImage from './image/not_baymax.png';
 
 /* ============================================================
+   Data Source: Station Reference
+   ============================================================ */
+const stationData = [
+  { id: '9225', state: 'Western Australia', shortcode: 'WA' },
+  { id: '14015', state: 'Northern Territory', shortcode: 'NT' },
+  { id: '23373', state: 'South Australia', shortcode: 'SA' },
+  { id: '41560', state: 'Queensland', shortcode: 'QLD' },
+  { id: '53115', state: 'New South Wales', shortcode: 'NSW' },
+  { id: '82039', state: 'Victoria', shortcode: 'VIC' },
+  { id: '91375', state: 'Tasmania', shortcode: 'TAS' },
+];
+
+/* ============================================================
    Responsive Breakpoint Hook
    ============================================================ */
 function useBreakpoint() {
@@ -117,6 +130,34 @@ function HomePage({ isMobile, isTablet }) {
     alignItems: isMobile ? "center" : "flex-start",
   };
 
+  // Table Styles specific to HomePage
+  const tableStyles = {
+    container: {
+      marginTop: 24,
+      width: '100%',
+      overflowX: 'auto', // Handles overflow on very small screens
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: isMobile ? 14 : 16,
+      textAlign: 'left',
+      border: '1px solid #e2e8f0',
+    },
+    th: {
+      background: '#f1f5f9',
+      padding: '12px 8px',
+      borderBottom: '2px solid #e2e8f0',
+      fontWeight: 600,
+      color: '#334155',
+    },
+    td: {
+      padding: '10px 8px',
+      borderBottom: '1px solid #e2e8f0',
+      color: '#475569',
+    }
+  };
+
   return (
     <div style={wrapStyle}>
       <div style={heroStyle}>
@@ -142,6 +183,39 @@ function HomePage({ isMobile, isTablet }) {
             provide accurate planting recommendations and forecasts.
           </p>
 
+          {/* --- Data Sources Table --- */}
+          <div style={{ marginTop: 4, width: '100%' }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
+              Data Sources:&nbsp;
+              <a 
+                href="https://www.bom.gov.au/climate/data/index.shtml" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}
+              >Weather Stations (Australian Government - Bureau of Meteorology)</a>
+            </h3>
+            <div style={tableStyles.container}>
+              <table style={tableStyles.table}>
+                <thead>
+                  <tr>
+                    <th style={tableStyles.th}>State</th>
+                    <th style={tableStyles.th}>Code</th>
+                    <th style={tableStyles.th}>Station ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stationData.map((station) => (
+                    <tr key={station.id}>
+                      <td style={tableStyles.td}>{station.state}</td>
+                      <td style={tableStyles.td}>{station.shortcode}</td>
+                      <td style={tableStyles.td}>{station.id}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <p style={styles.credit}>Presented by 1Bit.</p>
         </div>
 
@@ -160,10 +234,10 @@ function HomePage({ isMobile, isTablet }) {
 const styles = {
   wrap: { padding: "32px 20px" },
   hero: {
-    maxWidth: 1200,
+    maxWidth: 1400,
     margin: "0 auto",
     display: "flex",
-    gap: 32,
+    gap: 128,
     alignItems: "center",
     justifyContent: "space-between",
     flexWrap: "wrap",
