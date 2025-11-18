@@ -36,3 +36,279 @@
     transform: rotate(360deg);
   }
 }
+
+/* =============================================
+   MapsD3Page Styles (Planting Suitability)
+   ============================================= */
+
+/* Main container */
+.maps-page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+/* Header section */
+.maps-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.maps-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.maps-header p {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+/* Main grid layout */
+.maps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* Map container */
+.map-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.map-section h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.map-container {
+  position: relative;
+  width: 100%;
+  min-height: 400px;
+  background: #fafafa;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* D3 State paths */
+.state-path {
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.state-path:hover {
+  opacity: 0.8;
+  stroke-width: 2.5;
+}
+
+/* Controls section */
+.controls-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.control-group {
+  margin-bottom: 1.5rem;
+}
+
+.control-group label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.control-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.control-group select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background-color: white;
+  color: #1f2937;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.control-group select:hover {
+  border-color: #9ca3af;
+}
+
+.control-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Temperature display */
+.temp-display {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  color: white;
+}
+
+.temp-display .label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.9;
+  margin-bottom: 0.25rem;
+}
+
+.temp-display .value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.temp-display .station {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.5rem;
+}
+
+/* Loading/Error states */
+.loading-state, .error-state, .no-selection {
+  text-align: center;
+  padding: 1rem;
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.error-state {
+  color: #dc2626;
+  background: #fee2e2;
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+/* AI Recommendations section */
+.recommendations-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  grid-column: 1 / -1;
+}
+
+.recommendations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.recommendations-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.crop-count {
+  background: #3b82f6;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+}
+
+/* Crop cards grid */
+.crops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.crop-card {
+  background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+.crop-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+}
+
+.crop-card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.75rem 0;
+}
+
+.crop-temp-info {
+  font-size: 0.813rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.crop-temp-info div {
+  margin-bottom: 0.25rem;
+}
+
+.crop-temp-info strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+/* Empty state for no crops */
+.no-crops {
+  text-align: center;
+  padding: 2rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .maps-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .crops-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .maps-page-container {
+    padding: 1rem;
+  }
+  
+  .control-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .crops-grid {
+    grid-template-columns: 1fr;
+  }
+}
