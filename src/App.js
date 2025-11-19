@@ -145,7 +145,7 @@ function HomePage({ isMobile, isTablet }) {
       border: '1px solid #e2e8f0',
     },
     th: {
-      background: '#f1f5f9',
+      background: '#03c113',
       padding: '12px 8px',
       borderBottom: '2px solid #e2e8f0',
       fontWeight: 600,
