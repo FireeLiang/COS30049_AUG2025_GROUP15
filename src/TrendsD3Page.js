@@ -100,7 +100,7 @@ function TrendsD3Page() {
     return () => ro.disconnect();
   }, []);
 
-  /* ------------------------ Load the states once ------------------------ */
+/* ------------------------ Load the states once ------------------------ */
   useEffect(() => {
     let ignore = false;
     (async () => {
@@ -108,7 +108,8 @@ function TrendsD3Page() {
         const states = await getJSON(`${API_BASE}/states`);
         if (ignore) return;
         const clean = (states || [])
-          .filter((x) => typeof x === "string" && x && x.toLowerCase() !== "nan");
+          .filter((x) => typeof x === "string" && x && x.toLowerCase() !== "nan")
+          .sort((a, b) => a.localeCompare(b)); // <--- ADDED SORT HERE
         setAllStates(clean);
         setSelectedStates([]); // start EMPTY on load
       } catch (e) {
@@ -118,7 +119,7 @@ function TrendsD3Page() {
     return () => { ignore = true; };
   }, []);
 
-  /* -------------------------- Load crops list --------------------------- */
+/* -------------------------- Load crops list --------------------------- */
   useEffect(() => {
     let ignore = false;
     (async () => {
@@ -126,7 +127,8 @@ function TrendsD3Page() {
         const crops = await getJSON(`${API_BASE}/crops`);
         if (ignore) return;
         const names = (crops || [])
-          .filter((c) => typeof c === "string" && c.trim().length > 0);
+          .filter((c) => typeof c === "string" && c.trim().length > 0)
+          .sort((a, b) => a.localeCompare(b)); // <--- ADDED SORT HERE
         setCropList(names.length ? names : CROPS_FALLBACK);
       } catch {
         if (!ignore) setCropList(CROPS_FALLBACK);

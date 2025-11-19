@@ -81,17 +81,21 @@ function RainfallD3Page() {
     []
   );
 
-  // --- 1. Effect to Load Dropdown Data (on mount) ---
+// --- 1. Effect to Load Dropdown Data (on mount) ---
   useEffect(() => {
     getJSON(`${API_BASE}/rainfall/stations`)
-      .then(setAllStations)
+      .then((data) => {
+        // Sort the data alphabetically before setting state
+        const sortedStations = data.sort((a, b) => a.localeCompare(b));
+        setAllStations(sortedStations);
+      })
       .catch((err) => {
         console.error("Failed to fetch stations:", err);
         setError("Could not load stations. API down?");
       });
 
     getJSON(`${API_BASE}/rainfall/crops`)
-      .then(setAllCrops)
+      .then(setAllCrops) // You can do the same here if you want crops sorted too
       .catch((err) => {
         console.error("Failed to fetch rainfall crops:", err);
       });
