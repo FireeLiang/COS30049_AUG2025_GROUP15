@@ -279,7 +279,15 @@ function App() {
     alignItems: "center",
   };
 
-  const navLinkStyle = { color: "white", textDecoration: "none", fontSize: isMobile ? 14 : 16 };
+  const navLinkStyle = { 
+    color: "white", 
+    textDecoration: "none", 
+    fontSize: isMobile ? 14 : 16,
+    padding: "8px 12px",
+    borderRadius: "4px",
+    transition: "background-color 0.2s ease",
+    display: "inline-block"
+  };
 
   return (
     <BrowserRouter>
@@ -288,9 +296,9 @@ function App() {
         <nav style={navStyle}>
           <ul style={navListStyle}>
             <li><Link to="/" style={navLinkStyle}>Home</Link></li>
-            <li><Link to="/MapsD3Page" style={navLinkStyle}>MapsD3Page</Link></li>
-            <li><Link to="/TrendsD3Page" style={navLinkStyle}>TrendsD3Page</Link></li>
-            <li><Link to="/RainfallD3Page" style={navLinkStyle}>RainfallD3Page</Link></li>
+            <li><Link to="/MapsD3Page" style={navLinkStyle}>Crops Recommendation</Link></li>
+            <li><Link to="/TrendsD3Page" style={navLinkStyle}>Seasonal Trends</Link></li>
+            <li><Link to="/RainfallD3Page" style={navLinkStyle}>Rainfall Suitability</Link></li>
           </ul>
         </nav>
 

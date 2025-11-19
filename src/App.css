@@ -68,6 +68,25 @@
   font-size: 0.95rem;
 }
 
+/* Navigation styles for menu */
+nav a {
+  color: white;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  display: inline-block;
+}
+
+nav a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+nav a:active {
+  transform: translateY(0);
+}
+
 /* Main grid layout */
 .maps-grid {
   display: grid;
