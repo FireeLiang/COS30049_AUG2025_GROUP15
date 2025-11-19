@@ -57,23 +57,6 @@ async function getJSON(url, opts) {
   return r.json();
 }
 
-// Remove “Average” and any year tokens but keep site + (STATE)
-function stripYearTag(label) {
-  if (!label) return label;
-  return label
-    .replace(/\bAverage\b/gi, " ")
-    .replace(/\b20\d{2}\b/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-// Insert a year before the final "(STATE)" group (or at the end if not found)
-function addYearTag(baseLabel, year) {
-  const m = baseLabel.match(/^(.*?)(\s*\([^)]+\))$/);
-  if (m) return `${m[1]} ${year}${m[2]}`;
-  return `${baseLabel} ${year}`;
-}
-
 /* =========================================================================
    COMPONENT
    ========================================================================= */
@@ -176,33 +159,14 @@ function TrendsD3Page() {
     return () => { ignore = true; };
   }, [selectedCrop]);
 
-  // Unique station names (no year) – used to synthesize 2025 labels and in the 2025 Predictions panel
-  const baseStationNames = useMemo(() => {
-    const uniq = new Set(allStates.map(stripYearTag));
-    return Array.from(uniq).sort((a, b) => a.localeCompare(b));
-  }, [allStates]);
+  // The API now returns one label per state (e.g. "Queensland (QLD)"),
+  // and the same list is used for all years.
+  const yearFilteredStates = useMemo(() => allStates, [allStates]);
 
-  // If user picks 2025, we fabricate 2025 labels from base names.
-  const synthetic2025 = useMemo(
-    () => baseStationNames.map((n) => addYearTag(n, 2025)),
-    [baseStationNames]
-  );
-
-  /* --------------- Filtered list that matches selectedYear -------------- */
-  const yearFilteredStates = useMemo(() => {
-    if (selectedYear === 2025) {
-      return synthetic2025; // 2025 is forecast-only; we synthesize labels
-    }
-    return allStates.filter((s) => s.includes(String(selectedYear)));
-  }, [allStates, selectedYear, synthetic2025]);
-
-  // When the year changes, drop any previously selected stations that don't match it
+  // If the list from the API changes, drop any selections that no longer exist
   useEffect(() => {
-    setSelectedStates((prev) => {
-      const allowed = new Set(yearFilteredStates);
-      return prev.filter((s) => allowed.has(s));
-    });
-  }, [selectedYear, yearFilteredStates]);
+    setSelectedStates((prev) => prev.filter((s) => yearFilteredStates.includes(s)));
+  }, [yearFilteredStates]);
 
   /* ---------------------- Load forecast/actuals ------------------------- */
   useEffect(() => {
@@ -281,8 +245,8 @@ function TrendsD3Page() {
   }, [actualRows]);
 
   const color = useMemo(
-    () => d3.scaleOrdinal(d3.schemeTableau10).domain([...allStates, ...synthetic2025]),
-    [allStates, synthetic2025]
+    () => d3.scaleOrdinal(d3.schemeTableau10).domain(allStates),
+    [allStates]
   );
 
   /* ------------------------------- D3 draw ------------------------------ */

@@ -471,45 +471,80 @@ _HIST_NAMES = _historical_states()
 
 _HIST_TOKENS: List[Tuple[str, List[str]]] = [(name, _tokens(name)) for name in _HIST_NAMES]
 
+# ------------------------------------------------------------------
+# Human-friendly state labels used by the front-end
+# ------------------------------------------------------------------
+STATE_DISPLAY_NAMES: List[str] = [
+    "Tasmania (TAS)",
+    "Northern Territory (NT)",
+    "Queensland (QLD)",
+    "New South Wales (NSW)",
+    "South Australia (SA)",
+    "Western Australia (WA)",
+    "Victoria (VIC)",
+]
+
+# Keyword to locate the correct station_name(s) inside _HIST_NAMES
+_STATE_KEYWORDS: Dict[str, str] = {
+    "Tasmania (TAS)": "Brumbys Creek",
+    "Northern Territory (NT)": "Darwin Airport",
+    "Queensland (QLD)": "Goondiwindi",
+    "New South Wales (NSW)": "Moree Aero",
+    "South Australia (SA)": "Nuriootpa PIRSA",
+    "Western Australia (WA)": "Perth Metro",
+    "Victoria (VIC)": "Rutherglen Research",
+}
 
 
+def _build_station_to_display() -> Dict[str, str]:
+    """
+    Map each historical station_name (2023/2024) to one of the
+    7 state display labels above.
+    """
+    mapping: Dict[str, str] = {}
+    for display, keyword in _STATE_KEYWORDS.items():
+        kw = keyword.lower()
+        for hist_name in _HIST_NAMES:
+            if kw in hist_name.lower():
+                mapping[hist_name] = display
+    return mapping
+
+
+STATION_TO_DISPLAY: Dict[str, str] = _build_station_to_display()
+
+# Reverse: display label -> list of station_name strings
+DISPLAY_TO_STATIONS: Dict[str, List[str]] = {}
+for hist_name, display in STATION_TO_DISPLAY.items():
+    DISPLAY_TO_STATIONS.setdefault(display, []).append(hist_name)
 
 
 def _resolve_to_historical(display_or_name: str) -> str:
-
     """
-
-    Map a display label such as 'Perth Metro 2025 (WA)' to the most
-
-    likely historical station_name in MASTER.
-
+    Map a display label such as 'Perth Metro 2025 (WA)' or
+    'Queensland (QLD)' to the most likely historical station_name
+    in MASTER.
     """
-
+    # 1) Already a historical station_name
     if display_or_name in _HIST_NAMES:
-
         return display_or_name
 
+    # 2) New friendly state labels, e.g. "Queensland (QLD)"
+    if display_or_name in STATE_DISPLAY_NAMES:
+        stations = DISPLAY_TO_STATIONS.get(display_or_name, [])
+        if stations:
+            # Use the first mapped station as the canonical one
+            return stations[0]
 
-
+    # 3) Fallback: old fuzzy matching logic for labels like
+    #    "Perth Metro 2025 (WA)" etc.
     tgt = _tokens(display_or_name)
-
     best_name, best_score = None, -1.0
-
     for hist_name, hist_tok in _HIST_TOKENS:
-
         score = _jaccard(tgt, hist_tok)
-
         if score > best_score:
-
             best_name, best_score = hist_name, score
 
-
-
     return best_name if best_name is not None else _HIST_NAMES[0]
-
-
-
-
 
 def _states_2025_labels() -> List[str]:
 
@@ -563,7 +598,7 @@ def status():
 
         "years": YEAR_CHOICES,
 
-        "states_count": len(_HIST_NAMES),
+        "states_count": len(STATE_DISPLAY_NAMES),
 
         "crops_count": 0 if CROPS is None or CROPS.empty else int(CROPS.shape[0]),
 
@@ -655,10 +690,12 @@ def update_config(patch: ConfigUpdate):
 # =====================================================================
 
 @app.get("/states", response_model=List[str])
-
 def get_states() -> List[str]:
-
-    return _HIST_NAMES
+    """
+    Returns the 7 Australian state/territory labels used by the UI,
+    e.g. 'Queensland (QLD)'.
+    """
+    return STATE_DISPLAY_NAMES
 
 
 
@@ -879,64 +916,55 @@ class TempRow(BaseModel):
 
 
 @app.get("/temps", response_model=List[TempRow])
-
 def get_monthly_temps(
-
     month: int = Query(..., ge=1, le=12),
-
     year: int = Query(..., ge=2023, le=2024),
-
-    states: str = Query(..., description="Comma-separated station_name (historical)"),
-
+    states: str = Query(
+        ...,
+        description="Comma-separated friendly labels, e.g. 'Queensland (QLD)'",
+    ),
 ):
-
-    chosen = [s.strip() for s in states.split(",") if s.strip()]
-
-    if not chosen:
-
+    # 1) Parse user-facing state labels
+    chosen_display = [s.strip() for s in states.split(",") if s.strip()]
+    if not chosen_display:
         return []
 
+    # 2) Map them to the underlying historical station_name values
+    hist_names: List[str] = []
+    for disp in chosen_display:
+        hist_names.extend(DISPLAY_TO_STATIONS.get(disp, []))
 
+    if not hist_names:
+        return []
 
+    # 3) Filter the master table
     df = MASTER[
-
         (MASTER["date"].dt.month == month)
-
         & (MASTER["date"].dt.year == year)
-
-        & (MASTER["station_name"].isin(chosen))
-
+        & (MASTER["station_name"].isin(hist_names))
     ].copy()
 
-
-
     if df.empty:
-
         return []
 
-
-
+    # 4) Convert station_name -> friendly display label
     df["day"] = df["date"].dt.day
+    df["state_display"] = df["station_name"].map(STATION_TO_DISPLAY).fillna(
+        df["station_name"]
+    )
 
     out = (
-
-        df[["station_name", "day", "avg_temp"]]
-
+        df[["state_display", "day", "avg_temp"]]
         .dropna(subset=["avg_temp"])
-
-        .rename(columns={"station_name": "state", "avg_temp": "temp"})
-
+        .rename(columns={"state_display": "state", "avg_temp": "temp"})
         .sort_values(["state", "day"])
-
     )
 
     return [
-
         TempRow(state=r.state, day=int(r.day), temp=float(r.temp))
-
         for r in out.itertuples(index=False)
-
     ]
+
 
 
 
