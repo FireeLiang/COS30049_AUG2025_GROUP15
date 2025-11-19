@@ -15,6 +15,8 @@ import {
   Button,
 } from "@mui/material";
 
+import PrintIcon from '@mui/icons-material/Print';
+
 // Import CSS
 import "./TrendsD3Page.css"; 
 
@@ -505,19 +507,58 @@ function RainfallD3Page() {
       .call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
   };
 
+  const handleExportImage = () => {
+    window.print();
+  };
+
   // --- Render ---
   return (
     <Box 
       className="trends-wrap" 
       sx={{ maxWidth: '1800px', margin: '0 auto' }}
     >
-      <Box className="trends-header">
-        <Typography variant="h3" component="h1" className="trends-title">
-          Rainfall Suitability
-        </Typography>
-        <Typography className="trends-subtitle">
-          Historical vs. Forecasted Monthly Rainfall
-        </Typography>
+      {/* Print Styles: Hides buttons/dropdowns when printing */}
+      <style>
+        {`
+          @media print {
+            .controls, .MuiButton-root, .d3-tooltip, .trends-header {
+              display: none !important; 
+            }
+            .trends-wrap, .chart-card {
+              width: 100% !important;
+              height: 600px !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+            }
+            /* Optional: Ensures background graphics (colors) are printed */
+            * {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+          }
+        `}
+      </style>
+<Box className="trends-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h3" component="h1" className="trends-title">
+            Rainfall Suitability
+          </Typography>
+          <Typography className="trends-subtitle">
+            Historical vs. Forecasted Monthly Rainfall
+          </Typography>
+        </Box>
+
+        {/* EXPORT BUTTON */}
+        <Button 
+          variant="contained" 
+          startIcon={<PrintIcon />} 
+          onClick={handleExportImage}
+          sx={{ height: 'fit-content' }}
+        >
+          Export Chart Image
+        </Button>
       </Box>
 
       <Paper 
@@ -602,11 +643,11 @@ function RainfallD3Page() {
         ))}
         <Box sx={{ display: "inline-flex", alignItems: "center", ml: 2 }}>
             <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: "grey.500", mr: 1, opacity: 1.0 }} />
-            <Typography variant="body2">Actual</Typography>
+            <Typography variant="body2">Actual (2023, 2024)</Typography>
         </Box>
         <Box sx={{ display: "inline-flex", alignItems: "center" }}>
             <Box sx={{ width: 12, height: 12, borderRadius: "2px", bgcolor: "grey.500", mr: 1, opacity: 0.7 }} />
-            <Typography variant="body2">Forecast</Typography>
+            <Typography variant="body2">Forecast (2025)</Typography>
         </Box>
 
         {cropLimits && (
