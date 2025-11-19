@@ -233,7 +233,7 @@ function RainfallD3Page() {
     // Push month labels down (dy) so they don't overlap with our new station labels
     xAxisGroup.selectAll("text")
       .style("font-size", "13px")
-      .attr("dy", "4em"); 
+      .attr("dy", "3em"); 
 
     yAxisGroup.selectAll("text").style("font-size", "13px");
     
@@ -341,7 +341,7 @@ function RainfallD3Page() {
             tooltip.style("opacity", 1);
             tooltip.html(`
               <strong>${d.year} - ${MONTH_MAP.get(d.month)}</strong><br/>
-              Station ID: ${d.station}<br/>
+              State: ${d.station}<br/>
               Rainfall: ${d.rainfall.toFixed(1)} mm
             `);
           })
@@ -371,16 +371,22 @@ function RainfallD3Page() {
          
          labelStations.append("text")
             .attr("class", "station-label")
-            .text(d => d[0]) // Station ID
+            .text(d => {
+              const fullName = d[0];
+              // Regex to capture text inside the last set of parentheses
+              const match = fullName.match(/\(([^)]+)\)$/); 
+              return match ? match[1] : fullName; 
+            })
+            // ------------------------
             .attr("x", x1.bandwidth() / 2)
-            .attr("y", height + 10) // Start slightly below the axis line
-            .attr("text-anchor", "end") // Anchor end so rotation makes it read bottom-to-top ending at axis
-            .attr("font-size", "10px")
+            .attr("y", height + 10) 
+            .attr("text-anchor", "end") 
+            .attr("font-size", "10px") // You can likely increase this to "12px" now that text is shorter
             .attr("fill", "#333")
             .style("pointer-events", "none")
             .attr("transform", d => `rotate(-90, ${x1.bandwidth() / 2}, ${height + 10})`);
-      }
-    }
+          }
+        }
 
     // ======================================================================
     // --- ZOOM HANDLER ---
@@ -405,7 +411,7 @@ function RainfallD3Page() {
         x0.range([0, width].map(d => t.applyX(d)));
         xAxisGroup.call(d3.axisBottom(x0));
         // Keep month labels pushed down
-        xAxisGroup.selectAll("text").attr("dy", "4em"); 
+        xAxisGroup.selectAll("text").attr("dy", "3em"); 
 
         // 3. Update Crop Lines/Rects
         if (cropLimits) {
@@ -616,7 +622,7 @@ function RainfallD3Page() {
         </Typography>
       )}
 
-      <Box className="chart-card" sx={{ mt: 2, height: "500px", position: "relative" }}>
+      <Box className="chart-card" sx={{ mt: 2, height: "560px", position: "relative" }}>
         
         <Button
           variant="outlined"

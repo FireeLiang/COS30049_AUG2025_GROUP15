@@ -192,46 +192,33 @@ def load_crops() -> pd.DataFrame:
 
 # =====================================================================
 
+#
+# Update the load_rainfall_master function to stop coercing the station column to a number.
+
 def load_rainfall_master() -> pd.DataFrame:
-
     """
-
     Loads historical rainfall data.
-
     Expected cols: Bureau of Meteorology station number,Year,Month,Total_Monthly_Rainfall_mm
-
     """
-
     try:
-
         df = pd.read_csv(RAINFALL_CSV_PATH)
-
     except Exception:
-
         print("--- WARNING: Could not load rainfall CSV ---")
-
         return pd.DataFrame(columns=["Bureau of Meteorology station number", "Year", "Month", "Total_Monthly_Rainfall_mm"])
-
    
-
     # Clean column names
-
     df.columns = df.columns.str.strip()
-
    
-
-    # Ensure numeric types
-
-    for col in ["Year", "Month", "Total_Monthly_Rainfall_mm", "Bureau of Meteorology station number"]:
-
+    # Ensure numeric types ONLY for data columns (removed Station Number from this list)
+    for col in ["Year", "Month", "Total_Monthly_Rainfall_mm"]: 
         if col in df.columns:
-
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-
+    # Explicitly force the Station identifier to be a clean String
+    if "Bureau of Meteorology station number" in df.columns:
+        df["Bureau of Meteorology station number"] = df["Bureau of Meteorology station number"].astype(str).str.strip()
 
     df = df.dropna()
-
     return df
 
 
@@ -797,9 +784,9 @@ def crop_limits(crop: str):
 
 # =====================================================================
 
-@app.get("/rainfall/stations", response_model=List[int])
+@app.get("/rainfall/stations", response_model=List[str])
 
-def list_rainfall_stations() -> List[int]:
+def list_rainfall_stations() -> List[str]:
 
     if RAINFALL_MASTER.empty:
 
@@ -811,7 +798,7 @@ def list_rainfall_stations() -> List[int]:
 
         .dropna()
 
-        .astype(int)
+        .astype(str)
 
         .drop_duplicates()
 
@@ -976,7 +963,7 @@ def get_monthly_temps(
 
 class RainfallActualRow(BaseModel):
 
-    station: int
+    station: str
 
     year: int
 
@@ -998,7 +985,7 @@ def get_monthly_rainfall(
 
     try:
 
-        chosen_stations = [int(s.strip()) for s in stations.split(",") if s.strip()]
+        chosen_stations = [s.strip() for s in stations.split(",") if s.strip()]
 
     except ValueError:
 
@@ -1054,7 +1041,7 @@ def get_monthly_rainfall(
 
         RainfallActualRow(
 
-            station=int(r.station),
+            station=str(r.station),
 
             year=int(r.year),
 
@@ -1200,7 +1187,7 @@ def forecast_month(
 
 class RainfallForecastRow(BaseModel):
 
-    station: int
+    station: str
 
     year: int
 
@@ -1230,7 +1217,7 @@ def forecast_rainfall(
 
     try:
 
-        chosen_stations = [int(s.strip()) for s in stations.split(",") if s.strip()]
+        chosen_stations = [s.strip() for s in stations.split(",") if s.strip()]
 
     except ValueError:
 
@@ -1272,7 +1259,7 @@ def forecast_rainfall(
 
         RainfallForecastRow(
 
-            station=int(f["Bureau of Meteorology station number"]),
+            station=str(f["Bureau of Meteorology station number"]),
 
             year=int(f["Year"]),
 
