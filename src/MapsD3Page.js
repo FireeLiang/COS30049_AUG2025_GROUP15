@@ -2,9 +2,18 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import './App.css';
 
+// --- ADD THESE IMPORTS ---
+import {
+  Box,
+  Typography,
+  Paper,
+} from "@mui/material";
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import localGeoData from './map/states.geojson';
+
 // --- CONSTANTS ---
 const API_BASE_URL = 'http://127.0.0.1:8000';
-const GEOJSON_URL = 'https://raw.githubusercontent.com/rowanhogan/australian-states/master/states.geojson';
+// const GEOJSON_URL = 'https://raw.githubusercontent.com/rowanhogan/australian-states/master/states.geojson';
 
 // Map GeoJSON state names to abbreviations
 const STATE_ABBR_MAP = {
@@ -128,48 +137,70 @@ function MapsD3Page() {
     //         });
     // }, []);
 
-    // --- 1. Fetch GeoJSON Data ---
-useEffect(() => {
-    fetch(GEOJSON_URL)
-        .then(res => {
-            if (!res.ok) throw new Error('Failed to load GeoJSON');
-            return res.json();
-        })
-        .then(data => {
-            
-            // Filter out ACT and add abbreviations to features
-            const allowedStates = [
-                'Western Australia',
-                'Northern Territory', 
-                'South Australia',
-                'Queensland',
-                'New South Wales',
-                'Victoria',
-                'Tasmania'
-            ];
-            
-            data.features = data.features
-                .filter(feature => {
-                    const stateName = feature.properties.STATE_NAME;
-                    const isAllowed = allowedStates.includes(stateName);
-                    
-                    return isAllowed;
-                })
-                .map(feature => ({
-                    ...feature,
-                    properties: {
-                        ...feature.properties,
-                        abbr: STATE_ABBR_MAP[feature.properties.STATE_NAME] || feature.properties.STATE_NAME
-                    }
-                }));
-            
-            setGeoData(data);
-        })
-        .catch(err => {
-            console.error("Failed to load GeoJSON:", err);
-            setApiError("Failed to load map data. Please refresh the page.");
-        });
-}, []);
+// --- 1. Load Local GeoJSON Data ---
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                // 1. Resolve the import
+                // Check if the import is a Module (has .default) or direct
+                let rawData = (localGeoData && localGeoData.default) ? localGeoData.default : localGeoData;
+
+                if (!rawData) {
+                    throw new Error("Local GeoJSON import is undefined.");
+                }
+
+                let finalData = rawData;
+
+                // 2. Handle "File Path" vs "JSON Object"
+                // If rawData is a string, it means the bundler returned the file path (URL).
+                // We need to fetch it.
+                if (typeof rawData === 'string') {
+                    const response = await fetch(rawData);
+                    if (!response.ok) throw new Error(`Failed to fetch local file: ${response.statusText}`);
+                    finalData = await response.json();
+                }
+
+                // 3. Verify Structure matches your file
+                if (!finalData.features || !Array.isArray(finalData.features)) {
+                    console.error("Structure mismatch. Data:", finalData);
+                    throw new Error("GeoJSON is missing the 'features' array.");
+                }
+
+                // 4. Process Data (Deep Copy & Filter)
+                const data = JSON.parse(JSON.stringify(finalData));
+                
+                const allowedStates = [
+                    'Western Australia',
+                    'Northern Territory', 
+                    'South Australia',
+                    'Queensland',
+                    'New South Wales',
+                    'Victoria',
+                    'Tasmania'
+                ];
+                
+                data.features = data.features
+                    .filter(feature => {
+                        const stateName = feature.properties?.STATE_NAME;
+                        return allowedStates.includes(stateName);
+                    })
+                    .map(feature => ({
+                        ...feature,
+                        properties: {
+                            ...feature.properties,
+                            abbr: STATE_ABBR_MAP[feature.properties.STATE_NAME] || feature.properties.STATE_NAME
+                        }
+                    }));
+                
+                setGeoData(data);
+            } catch (err) {
+                console.error("Map Load Error:", err);
+                setApiError(`Map Error: ${err.message}`);
+            }
+        };
+
+        loadData();
+    }, []);
 
     // --- 2. D3 Map Drawing Effect (Now shows temperature ON the map) ---
     useEffect(() => {
@@ -364,6 +395,58 @@ useEffect(() => {
                 <h1>Planting Suitability Across Australian States ({selectedDate.year})</h1>
                 <p>Select a date and click on a state to view temperature and suitable crops plantation.</p>
             </div>
+
+            {/* ========================================================================= */}
+            {/* 2. NEW GUIDANCE / INSTRUCTION BOX (ADDED)                                 */}
+            {/* ========================================================================= */}
+            <Paper 
+                elevation={0} 
+                variant="outlined" 
+                sx={{ 
+                p: 2, 
+                mt: 2, 
+                mb: 4, // Added margin bottom for spacing before the grid
+                borderRadius: "14px", 
+                width: "100%", 
+                boxSizing: "border-box",
+                backgroundColor: "#f8f9fa", 
+                borderLeft: "6px solid #1976d2"
+                }}
+            >
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                <InfoOutlinedIcon color="primary" sx={{ mt: 0.5 }} />
+                
+                <Box sx={{ width: "100%" }}>
+                    <Typography variant="h6" component="div" sx={{ fontSize: "1rem", fontWeight: 600, mb: 1 }}>
+                    How to interpret this chart
+                    </Typography>
+                    
+                    <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 4 }}>
+                    {/* Left Column: Context */}
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 0.5 }}>
+                        This interactive map visualizes <strong>Regional Planting Suitability</strong> based on historical and forecasted temperatures (2023-2025).
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                        Click on a <strong>State</strong> to reveal the local average temperature. The system then generates a list of <strong>Suitable Crops</strong> whose optimal growing conditions match that specific location and date.
+                        </Typography>
+                    </Box>
+
+                    {/* Right Column: Interaction */}
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontSize: "0.85rem", fontWeight: "bold", color: "#444" }}>
+                        Interactive Controls:
+                        </Typography>
+                        <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.85rem", color: "text.secondary" }}>
+                        <li><strong>Map Selection:</strong> Click any state on the map to filter data for that region.</li>
+                        <li><strong>Time Slider:</strong> Drag the "Day" slider or change Month/Year to simulate different planting windows.</li>
+                        <li><strong>Recommendations:</strong> Review the cards below the map to see specific temperature ranges for viable crops.</li>
+                        </Box>
+                    </Box>
+                    </Box>
+                </Box>
+                </Box>
+            </Paper>
 
             {/* Main Grid */}
             <div className="maps-grid">

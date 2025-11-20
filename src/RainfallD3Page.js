@@ -543,8 +543,8 @@ function RainfallD3Page() {
       </style>
 <Box className="trends-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Box>
-          <Typography variant="h3" component="h1" className="trends-title">
-            Rainfall Suitability
+          <Typography variant="h3" fontWeight={800} sx={{ mb: 1 }}>
+            Rainfall Suitability in Australia (AI Forecast)
           </Typography>
           <Typography className="trends-subtitle">
             Historical vs. Forecasted Monthly Rainfall
