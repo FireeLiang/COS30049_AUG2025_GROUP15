@@ -539,7 +539,14 @@ function TrendsD3Page() {
         Seasonal Temperature Trends in Australia (AI Forecast)
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Dashed lines = model forecast; thin solid lines = actuals (when available).
+        Dashed lines = Prediction data; Thin solid lines = Historical data.
+      </Typography>
+
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        To view the temperature, you can select the month, year, and the state that you want from these boxes below. Furthermore, 
+        you can select the crop that you are planning to plant from the box below to display its ideal temperature for planting so
+        comparisons can be made easily. The maximum and minimum temperature to plant the selected crop will be displayed as 
+        additional information below the chart  
       </Typography>
 
       {/* Controls */}
