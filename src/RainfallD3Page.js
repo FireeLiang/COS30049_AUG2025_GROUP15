@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 
 import PrintIcon from '@mui/icons-material/Print';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 // Import CSS
 import "./TrendsD3Page.css"; 
@@ -560,6 +561,57 @@ function RainfallD3Page() {
           Export Chart Image
         </Button>
       </Box>
+
+      {/* ========================================================================= */}
+      {/* 2. NEW GUIDANCE / INSTRUCTION BOX (ADDED)                                 */}
+      {/* ========================================================================= */}
+      <Paper 
+        elevation={0} 
+        variant="outlined" 
+        sx={{ 
+          p: 2, 
+          mt: 2, 
+          borderRadius: "14px", 
+          width: "100%", 
+          boxSizing: "border-box",
+          backgroundColor: "#f8f9fa", // Slightly grey bg to differentiate from inputs
+          borderLeft: "6px solid #1976d2" // Optional: Accent color to indicate "Info"
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+          <InfoOutlinedIcon color="primary" sx={{ mt: 0.5 }} />
+          
+          <Box sx={{ width: "100%" }}>
+            <Typography variant="h6" component="div" sx={{ fontSize: "1rem", fontWeight: 600, mb: 1 }}>
+              How to interpret this chart
+            </Typography>
+            
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 4 }}>
+              {/* Left Column: Context */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 0.5 }}>
+                  This tool compares <strong>Historical Actuals</strong> (2023-2024) with <strong>AI Forecasted</strong> rainfall (2025).
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Select a <strong>Crop</strong> from the menu below to overlay suitability zones (green dashed lines). This helps identify if the predicted rainfall meets the crop's water requirements.
+                </Typography>
+              </Box>
+
+              {/* Right Column: Interaction */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontSize: "0.85rem", fontWeight: "bold", color: "#444" }}>
+                  Interactive Controls:
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.85rem", color: "text.secondary" }}>
+                  <li><strong>Zoom:</strong> Scroll your mouse wheel to zoom in on specific months/stations.</li>
+                  <li><strong>Pan:</strong> Click and drag the chart area to move left/right.</li>
+                  <li><strong>Hover:</strong> Place your mouse over any bar to see precise rainfall (mm) figures.</li>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
 
       <Paper 
         elevation={0} 

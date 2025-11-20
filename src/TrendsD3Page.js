@@ -14,6 +14,8 @@ import {
   Paper,
 } from "@mui/material";
 
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+
 /* =========================================================================
    CONFIG
    ========================================================================= */
@@ -539,15 +541,63 @@ function TrendsD3Page() {
         Seasonal Temperature Trends in Australia (AI Forecast)
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Dashed lines = Prediction data; Thin solid lines = Historical data.
+        Historical vs. Forecasted Daily Temperature
       </Typography>
 
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
-        To view the temperature, you can select the month, year, and the state that you want from these boxes below. Furthermore, 
-        you can select the crop that you are planning to plant from the box below to display its ideal temperature for planting so
-        comparisons can be made easily. The maximum and minimum temperature to plant the selected crop will be displayed as 
-        additional information below the chart  
-      </Typography>
+      {/* ========================================================================= */}
+      {/* 2. NEW GUIDANCE / INSTRUCTION BOX (ADDED)                                 */}
+      {/* ========================================================================= */}
+      <Paper 
+        elevation={0} 
+        variant="outlined" 
+        sx={{ 
+          p: 2, 
+          mt: 2, 
+          mb: 3, // Added margin bottom to separate from controls
+          borderRadius: "14px", 
+          width: "100%", 
+          boxSizing: "border-box",
+          backgroundColor: "#f8f9fa", 
+          borderLeft: "6px solid #1976d2" 
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+          <InfoOutlinedIcon color="primary" sx={{ mt: 0.5 }} />
+          
+          <Box sx={{ width: "100%" }}>
+            <Typography variant="h6" component="div" sx={{ fontSize: "1rem", fontWeight: 600, mb: 1 }}>
+              How to interpret this chart
+            </Typography>
+            
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 4 }}>
+              {/* Left Column: Context */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 0.5 }}>
+                  This tool compares <strong>Historical Actuals</strong> (2023-2024) with <strong>AI Forecasted</strong> temperatures (2025).
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Select a <strong>Crop</strong> from the menu below to overlay the optimal temperature zone (green shaded band). This helps assess if the daily temperatures fall within the crop's safe growing limits.
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <br></br>
+                  <strong>(------)</strong> Prediction data; <strong>(━━━)</strong> Historical data
+                </Typography>
+              </Box>
+
+              {/* Right Column: Interaction */}
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontSize: "0.85rem", fontWeight: "bold", color: "#444" }}>
+                  Interactive Controls:
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2, fontSize: "0.85rem", color: "text.secondary" }}>
+                  <li><strong>Hover:</strong> Move your cursor along the timeline to see precise daily temperature (°C) readings.</li>
+                  <li><strong>Compare:</strong> Select multiple states from the dropdown to analyze temperature variances across regions simultaneously.</li>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
 
       {/* Controls */}
       <Stack
