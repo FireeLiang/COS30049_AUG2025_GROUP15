@@ -173,7 +173,7 @@ function HomePage({ isMobile, isTablet }) {
           </h1>
 
           <p style={styles.lead}>
-            Today’s weather, informed by history — helping you decide if it’s the right day to plant.
+            Today’s weather, informed by history and forecasts — helping you decide if it’s the right day to plant.
           </p>
 
           <h2 style={styles.subhead}>How is Today’s Weather and Forecast Calculated?</h2>
