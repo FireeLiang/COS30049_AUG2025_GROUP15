@@ -106,7 +106,7 @@ def load_and_train():
         print(f"✓ Crops: {', '.join(CROPS_RULES['Crop'].tolist())}")
         
     except Exception as e:
-        print(f"✗ CRITICAL ERROR loading crop rules: {e}")
+        print(f"CRITICAL ERROR loading crop rules: {e}")
         CROPS_RULES = pd.DataFrame()
 
     # 3. Train Random Forest Models for 2025 Prediction
@@ -119,14 +119,14 @@ def load_and_train():
             group_df = MASTER_DATA[MASTER_DATA['station_id'] == station_id].copy()
             
             if len(group_df) < 50:
-                print(f"⚠ Skipping {state_abbr} (Station {station_id}): Insufficient data ({len(group_df)} rows)")
+                print(f"Skipping {state_abbr} (Station {station_id}): Insufficient data ({len(group_df)} rows)")
                 continue
 
             # Prepare features and target
             X_train = group_df[['doy', 'month']]  # Using day of year and month
             y_train = group_df['avg_temp']
             
-            # Use Random Forest Regressor (more robust than Decision Tree)
+            # Use Random Forest Regressor 
             model = RandomForestRegressor(
                 n_estimators=100,
                 max_depth=15,
@@ -145,7 +145,7 @@ def load_and_train():
         print("\n✗ Cannot train models: No historical data loaded")
 
     print("="*60)
-    print("MAP TEMPERATURE MODULE INITIALIZED")
+    print("SYSTEM READY - Temperature predictions available!")
     print("="*60 + "\n")
 
 # Execute loading and training immediately when this module is imported

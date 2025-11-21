@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as d3 from 'd3';
 import './App.css';
 
-// --- ADD THESE IMPORTS ---
 import {
   Box,
   Typography,
@@ -13,7 +12,14 @@ import localGeoData from './map/states.geojson';
 
 // --- CONSTANTS ---
 const API_BASE_URL = 'http://127.0.0.1:8000';
-// const GEOJSON_URL = 'https://raw.githubusercontent.com/rowanhogan/australian-states/master/states.geojson';
+
+// --- Human-friendly error mapping ---
+const HUMAN_ERRORS = {
+    400: "Invalid date. Please select another date.",
+    404: "No data found for the chosen parameters.",
+    500: "Server error. Please try again later.",
+    503: "Forecast model not available for the selected state."
+};
 
 // Map GeoJSON state names to abbreviations
 const STATE_ABBR_MAP = {
@@ -66,7 +72,9 @@ async function fetchJson(url, options = {}) {
         const response = await fetch(url, options);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API Error (${response.status}): ${errorText}`);
+            const error = new Error(errorText || 'Unknown error');
+            error.status = response.status;
+            throw error;
         }
         return await response.json();
     } catch (error) {
@@ -115,7 +123,7 @@ function MapsD3Page() {
                 let rawData = (localGeoData && localGeoData.default) ? localGeoData.default : localGeoData;
 
                 if (!rawData) {
-                    throw new Error("Local GeoJSON import is undefined.");
+                    throw new Error("Sorry, the map data could not be loaded. Please check the file path or format.");
                 }
 
                 let finalData = rawData;
@@ -291,7 +299,7 @@ function MapsD3Page() {
         })
         .then(results => {
             if (!results || results.length === 0) {
-                throw new Error("No data returned for selected parameters.");
+                throw new Error("Data for the chosen date and state is not available at the moment. Please try a different selection.");
             }
             
             const temp = results[0].avg_temp;
@@ -315,7 +323,11 @@ function MapsD3Page() {
         })
         .catch(error => {
             console.error('API Error:', error);
-            setApiError(error.message || 'Failed to fetch data');
+            const friendlyMessage = error.status && HUMAN_ERRORS[error.status]
+            ? HUMAN_ERRORS[error.status]
+            : "Sorry, we couldn't load the data. Please try again.";
+
+            setApiError(friendlyMessage);
             setAvgTemperature(null);
             setSuitableCrops([]);
             setStationInfo({ id: null, name: null });
