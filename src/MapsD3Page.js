@@ -87,8 +87,7 @@ function MapsD3Page() {
         month: MONTHS[0].value,
         day: 1
     });
-    const [selectedState, setSelectedState] = useState(null);
-    const [stateTemperatures, setStateTemperatures] = useState({}); // Store temps for clicked states
+    const [selectedState, setSelectedState] = useState(null); //Store selected state abbreviation
     const [avgTemperature, setAvgTemperature] = useState(null);
     const [stationInfo, setStationInfo] = useState({ id: null, name: null });
     const [suitableCrops, setSuitableCrops] = useState([]);
@@ -106,36 +105,6 @@ function MapsD3Page() {
             setSelectedDate(prev => ({ ...prev, day: maxDaysInMonth }));
         }
     }, [maxDaysInMonth, selectedDate.day]);
-
-    // --- 1. Fetch GeoJSON Data ---
-    // useEffect(() => {
-    //     fetch(GEOJSON_URL)
-    //         .then(res => {
-    //             if (!res.ok) throw new Error('Failed to load GeoJSON');
-    //             return res.json();
-    //         })
-    //         .then(data => {
-    //             // Filter out ACT and add abbreviations to features
-    //             data.features = data.features
-    //                 .filter(feature => {
-    //                     const stateName = feature.properties.STATE_NAME;
-    //                     // Exclude Australian Capital Territory
-    //                     return stateName !== 'Australian Capital Territory';
-    //                 })
-    //                 .map(feature => ({
-    //                     ...feature,
-    //                     properties: {
-    //                         ...feature.properties,
-    //                         abbr: STATE_ABBR_MAP[feature.properties.STATE_NAME] || feature.properties.STATE_NAME
-    //                     }
-    //                 }));
-    //             setGeoData(data);
-    //         })
-    //         .catch(err => {
-    //             console.error("Failed to load GeoJSON:", err);
-    //             setApiError("Failed to load map data. Please refresh the page.");
-    //         });
-    // }, []);
 
 // --- 1. Load Local GeoJSON Data ---
     useEffect(() => {
@@ -229,7 +198,7 @@ function MapsD3Page() {
         const path = d3.geoPath().projection(projection);
 
         // Draw States
-        const statePaths = g.selectAll("path")
+        g.selectAll("path")
             .data(geoData.features)
             .enter().append("path")
             .attr("d", path)
@@ -343,12 +312,6 @@ function MapsD3Page() {
             setAvgTemperature(temp);
             setSuitableCrops(suitable);
             setStationInfo(station);
-            
-            // Store temperature for this state
-            setStateTemperatures(prev => ({
-                ...prev,
-                [selectedState]: temp
-            }));
         })
         .catch(error => {
             console.error('API Error:', error);
