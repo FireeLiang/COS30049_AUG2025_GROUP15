@@ -366,10 +366,14 @@ function MapsD3Page() {
     return (
         <div className="maps-page-container">
             {/* Header */}
-            <div className="maps-header">
-                <h1>Planting Suitability Across Australian States ({selectedDate.year})</h1>
-                <p>Select a date and click on a state to view temperature and suitable crops plantation.</p>
-            </div>
+            <Box className="maps-header">
+            <Typography variant="h3" fontWeight={800} sx={{ mb: 1 }}>
+                Planting Suitability Across Australian States ({selectedDate.year})
+            </Typography>
+            <Typography className="maps-subtitle">
+                Historical vs. Forecasted Daily Temperatures and Crop Suitability.
+            </Typography>
+        </Box>
 
             {/* ========================================================================= */}
             {/* 2. NEW GUIDANCE / INSTRUCTION BOX (ADDED)                                 */}
@@ -400,7 +404,7 @@ function MapsD3Page() {
                     {/* Left Column: Context */}
                     <Box sx={{ flex: 1 }}>
                         <Typography variant="body2" color="text.secondary" paragraph sx={{ mb: 0.5 }}>
-                        This interactive map visualizes <strong>Regional Planting Suitability</strong> based on historical and forecasted temperatures (2023-2025).
+                        This interactive map visualizes <strong>Regional Planting Suitability</strong> based on historical (2023-2024) and forecasted temperatures (2025).
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                         Click on a <strong>State</strong> to reveal the local average temperature. The system then generates a list of <strong>Suitable Crops</strong> whose optimal growing conditions match that specific location and date.
