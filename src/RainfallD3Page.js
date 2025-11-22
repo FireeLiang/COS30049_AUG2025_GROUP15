@@ -339,8 +339,15 @@ function RainfallD3Page() {
         .join("rect")
           .attr("class", "bar-rect")
           .attr("x", d => x2(d.key)) 
+
+          // --- VISUAL ENHANCEMENT FOR ZERO VALUES ---
+          // If rainfall is 0, position the bar 1 pixel above the baseline
           .attr("y", d => (d.rainfall === 0 ? y(0) - 1 : y(d.rainfall))) 
+
+          // If rainfall is 0, force the height to be 1 pixel so it remains visible
           .attr("height", d => (d.rainfall === 0 ? 1 : height - y(d.rainfall))) 
+
+          // Reduce opacity for these 'phantom' bars to distinguish them from real data
           .attr("opacity", d => (d.rainfall === 0) ? 0.4 : (d.type === 'forecast' ? 0.7 : 1.0))
           .attr("width", x2.bandwidth())
           .attr("fill", d => color(d.year))
@@ -388,7 +395,7 @@ function RainfallD3Page() {
             .attr("x", x1.bandwidth() / 2)
             .attr("y", height + 10) 
             .attr("text-anchor", "end") 
-            .attr("font-size", "10px") // You can likely increase this to "12px" now that text is shorter
+            .attr("font-size", "10px")
             .attr("fill", "#333")
             .style("pointer-events", "none")
             .attr("transform", d => `rotate(-90, ${x1.bandwidth() / 2}, ${height + 10})`);
@@ -645,7 +652,7 @@ function RainfallD3Page() {
           </FormControl>
 
           <FormControl sx={{ m: 1, minWidth: 240, maxWidth: 400 }} size="small">
-            <InputLabel id="station-multi-label">Stations</InputLabel>
+            <InputLabel id="station-multi-label">States</InputLabel>
             <Select
               labelId="station-multi-label"
               id="station-multi-select"
