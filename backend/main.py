@@ -96,7 +96,7 @@ def load_crops() -> pd.DataFrame:
 #                 DATA LOADING: RAINFALL (NEW)
 # =====================================================================
 #
-# Update the load_rainfall_master function to stop coercing the station column to a number.
+# The load_rainfall_master function here will stop coercing the station column to a number.
 
 def load_rainfall_master() -> pd.DataFrame:
     """
@@ -185,7 +185,7 @@ app.add_middleware(
 app.include_router(map_router)
 
 # ---------------------------------------------------------------------
-# Small, in-memory configuration (updated via PUT /config)
+# This is a small, in-memory configuration (updated via PUT /config)
 # ---------------------------------------------------------------------
 
 ALLOWED_MODELS = {"polynomial", "decision_tree", "random_forest"}
@@ -244,7 +244,7 @@ _HIST_NAMES = _historical_states()
 _HIST_TOKENS: List[Tuple[str, List[str]]] = [(name, _tokens(name)) for name in _HIST_NAMES]
 
 # ------------------------------------------------------------------
-# Human-friendly state labels used by the front-end
+# Human-friendly state labels that is used by the front-end
 # ------------------------------------------------------------------
 STATE_DISPLAY_NAMES: List[str] = [
     "Tasmania (TAS)",
@@ -331,7 +331,7 @@ def _states_2025_labels() -> List[str]:
     return sorted(labels)
 
 # ---------------------------------------------------------------------
-# Meta / admin endpoints (satisfy multi-method requirement)
+# Meta / admin endpoints
 # ---------------------------------------------------------------------
 @app.get("/status")
 def status():
@@ -704,7 +704,7 @@ def forecast_rainfall(
     return results
 
 # ---------------------------------------------------------------------
-# Tiny helper for UI
+# This is a tiny helper for UI (temperature chart)
 # ---------------------------------------------------------------------
 @app.get("/month_name")
 def month_name(month: int):
