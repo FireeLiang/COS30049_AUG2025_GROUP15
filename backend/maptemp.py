@@ -275,6 +275,14 @@ def get_suitability_prediction(query: SuitabilityQuery):
     Returns a list of all crops with their suitability status based on temperature.
     """
     
+    # Log incoming request
+    print("\n" + "="*60)
+    print(" INCOMING REQUEST: Crop Suitability Prediction")
+    print("="*60)
+    print(f" Date Requested: {query.month}/{query.day}/{query.year}")
+    print(f" State Requested: {query.state}")
+    print(f" Data Type: {' ML FORECAST' if query.year == 2025 else ' HISTORICAL LOOKUP'}")
+    
     # 1. Fetch Temperature Data (Live Prediction or Lookup)
     try:
         temp_data = _fetch_live_or_actual_temp(query)
@@ -297,6 +305,10 @@ def get_suitability_prediction(query: SuitabilityQuery):
 
     # 3. Apply ML/Suitability rule (T_min <= T_avg <= T_max)
     results = []
+    
+    print(f"  Temperature Retrieved: {avg_temp}°C")
+    print(f" Weather Station: {temp_data['station_name']} (ID: {temp_data['station_id']})")
+    print(f" Evaluating {len(CROPS_RULES)} crops against temperature threshold...")
     
     for r in CROPS_RULES.itertuples(index=False):
         # The core "Random Forest Classifier" suitability rule
@@ -321,6 +333,22 @@ def get_suitability_prediction(query: SuitabilityQuery):
                 best_temp=best_temp
             )
         )
+    
+    # Log results summary
+    suitable_count = sum(1 for r in results if r.is_suitable)
+    unsuitable_count = len(results) - suitable_count
+    
+    print(f"\n RESULTS:")
+    print(f"   ✓ Suitable Crops: {suitable_count}")
+    print(f"   ✗ Unsuitable Crops: {unsuitable_count}")
+    
+    if suitable_count > 0:
+        print(f"\n Suitable Crops List:")
+        for i, crop in enumerate([r for r in results if r.is_suitable], 1):
+            print(f"   {i}. {crop.crop} (Range: {crop.temp_min}°C - {crop.temp_max}°C)")
+    
+    print("="*60)
+    print(" Response sent to frontend\n")
         
     return results
 

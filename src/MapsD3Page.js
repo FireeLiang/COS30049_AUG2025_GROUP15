@@ -292,12 +292,42 @@ function MapsD3Page() {
             state: selectedState
         };
 
+        // Log the request in human-readable format
+        console.log('='.repeat(60));
+        console.log(' REQUESTING CROP RECOMMENDATIONS FROM BACKEND');
+        console.log('='.repeat(60));
+        console.log(` Selected Date: ${selectedDate.month}/${selectedDate.day}/${selectedDate.year}`);
+        console.log(` Selected State: ${selectedState} (${STATE_FULL_NAMES[selectedState]})`);
+        console.log(` API Endpoint: ${API_BASE_URL}/model/suitability`);
+        console.log(` Sending data:`, JSON.stringify(requestBody, null, 2));
+        console.log(' Waiting for response...\n');
+
         fetchJson(`${API_BASE_URL}/model/suitability`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         })
         .then(results => {
+            // Log the response in human-readable format
+            console.log('='.repeat(60));
+            console.log('RESPONSE RECEIVED FROM BACKEND');
+            console.log('='.repeat(60));
+            console.log(` Temperature Retrieved: ${results[0]?.avg_temp}°C`);
+            console.log(`Weather Station: ${results[0]?.station_name} (ID: ${results[0]?.station_id})`);
+            console.log(`Total Crops Evaluated: ${results?.length || 0}`);
+            
+            const suitableCount = results.filter(r => r.is_suitable).length;
+            console.log(`✓ Suitable Crops Found: ${suitableCount}`);
+            console.log(`✗ Unsuitable Crops: ${results.length - suitableCount}`);
+            
+            if (suitableCount > 0) {
+                console.log('\n📋 Suitable Crops:');
+                results.filter(r => r.is_suitable).forEach((crop, idx) => {
+                    console.log(`   ${idx + 1}. ${crop.crop} (Range: ${crop.temp_min}°C - ${crop.temp_max}°C)`);
+                });
+            }
+            console.log('='.repeat(60) + '\n');
+            
             if (!results || results.length === 0) {
                 throw new Error("Data for the chosen date and state is not available at the moment. Please try a different selection.");
             }
